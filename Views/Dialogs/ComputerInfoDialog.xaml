@@ -1,0 +1,87 @@
+<UserControl x:Class="PCBuilder.Views.Dialogs.ComputerInfoDialog"
+             xmlns="http://schemas.microsoft.com/winfx/2006/xaml/presentation"
+             xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
+             xmlns:d="http://schemas.microsoft.com/expression/blend/2008"
+             xmlns:mc="http://schemas.openxmlformats.org/markup-compatibility/2006"
+             xmlns:ui="http://schemas.lepo.co/wpfui/2022/xaml"
+             xmlns:vm="clr-namespace:PCBuilder.ViewModels"
+             mc:Ignorable="d"
+             d:DataContext="{d:DesignInstance Type=vm:ComputerInfoDialogViewModel}"
+             d:DesignHeight="600" d:DesignWidth="500">
+
+    <Grid MaxWidth="480">
+        <StackPanel Visibility="{Binding IsScanning, Converter={StaticResource BoolToVisibilityConverter}}">
+            <TextBlock Text="正在掃描硬體資訊，請稍候..." Margin="0,0,0,8" />
+            <ProgressBar IsIndeterminate="True" Height="4" />
+        </StackPanel>
+
+        <StackPanel Visibility="{Binding Info, Converter={StaticResource NullToVisibilityConverter}}">
+            <Grid Margin="0,0,0,4">
+                <Grid.ColumnDefinitions>
+                    <ColumnDefinition Width="120" />
+                    <ColumnDefinition Width="*" />
+                </Grid.ColumnDefinitions>
+                <TextBlock Text="主機板" FontWeight="Bold" />
+                <TextBlock Grid.Column="1" Text="{Binding Info.MotherboardManufacturer}" />
+            </Grid>
+            <Grid Margin="0,0,0,4">
+                <Grid.ColumnDefinitions>
+                    <ColumnDefinition Width="120" />
+                    <ColumnDefinition Width="*" />
+                </Grid.ColumnDefinitions>
+                <TextBlock Text="CPU" FontWeight="Bold" />
+                <TextBlock Grid.Column="1" Text="{Binding Info.CpuName}" />
+            </Grid>
+            <Grid Margin="0,0,0,4">
+                <Grid.ColumnDefinitions>
+                    <ColumnDefinition Width="120" />
+                    <ColumnDefinition Width="*" />
+                </Grid.ColumnDefinitions>
+                <TextBlock Text="記憶體總容量" FontWeight="Bold" />
+                <TextBlock Grid.Column="1" Text="{Binding Info.TotalPhysicalMemoryGb, StringFormat={}{0:F2} GB}" />
+            </Grid>
+
+            <TextBlock Text="顯示卡資訊" FontWeight="Bold" Margin="0,12,0,4" />
+            <ItemsControl ItemsSource="{Binding Info.Gpus}">
+                <ItemsControl.ItemTemplate>
+                    <DataTemplate>
+                        <StackPanel Margin="0,0,0,8">
+                            <TextBlock Text="{Binding Name}" />
+                            <TextBlock>
+                                <Run Text="{Binding AdapterRamGb, StringFormat={}{0:F2} GB}" />
+                                <Run Text=" / " />
+                                <Run Text="{Binding DriverVersion}" />
+                            </TextBlock>
+                        </StackPanel>
+                    </DataTemplate>
+                </ItemsControl.ItemTemplate>
+            </ItemsControl>
+
+            <TextBlock Text="記憶體插槽" FontWeight="Bold" Margin="0,12,0,4" />
+            <ItemsControl ItemsSource="{Binding Info.RamSticks}">
+                <ItemsControl.ItemTemplate>
+                    <DataTemplate>
+                        <TextBlock Margin="0,0,0,4">
+                            <Run Text="{Binding CapacityGb, StringFormat={}{0:F2} GB}" />
+                            <Run Text=", " />
+                            <Run Text="{Binding SpeedMhz}" />
+                            <Run Text=" MHz" />
+                        </TextBlock>
+                    </DataTemplate>
+                </ItemsControl.ItemTemplate>
+            </ItemsControl>
+
+            <TextBlock Text="儲存裝置" FontWeight="Bold" Margin="0,12,0,4" />
+            <ItemsControl ItemsSource="{Binding Info.Disks}">
+                <ItemsControl.ItemTemplate>
+                    <DataTemplate>
+                        <StackPanel Margin="0,0,0,8">
+                            <TextBlock Text="{Binding Model}" />
+                            <TextBlock Text="{Binding SizeGb, StringFormat={}{0:F2} GB}" />
+                        </StackPanel>
+                    </DataTemplate>
+                </ItemsControl.ItemTemplate>
+            </ItemsControl>
+        </StackPanel>
+    </Grid>
+</UserControl>

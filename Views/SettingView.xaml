@@ -1,0 +1,73 @@
+<UserControl x:Class="PCBuilder.Views.SettingView"
+             xmlns="http://schemas.microsoft.com/winfx/2006/xaml/presentation"
+             xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
+             xmlns:d="http://schemas.microsoft.com/expression/blend/2008"
+             xmlns:mc="http://schemas.openxmlformats.org/markup-compatibility/2006"
+             xmlns:ui="http://schemas.lepo.co/wpfui/2022/xaml"
+             xmlns:vm="clr-namespace:PCBuilder.ViewModels"
+             mc:Ignorable="d"
+             d:DataContext="{d:DesignInstance Type=vm:SettingViewModel}"
+             d:DesignHeight="600" d:DesignWidth="500">
+
+    <StackPanel Margin="16" MaxWidth="480" HorizontalAlignment="Left">
+
+        <TextBlock Text="關於" Opacity="0.6" Margin="0,0,0,8" />
+        <ui:CardControl Margin="0,0,0,16">
+            <ui:CardControl.Header>
+                <StackPanel>
+                    <Grid Margin="0,0,0,8">
+                        <Grid.ColumnDefinitions>
+                            <ColumnDefinition Width="*" />
+                            <ColumnDefinition Width="Auto" />
+                        </Grid.ColumnDefinitions>
+                        <TextBlock Text="目前版本" Opacity="0.6" />
+                        <TextBlock Grid.Column="1" Text="{Binding AppVersion}" />
+                    </Grid>
+                    <Grid Margin="0,0,0,8">
+                        <Grid.ColumnDefinitions>
+                            <ColumnDefinition Width="*" />
+                            <ColumnDefinition Width="Auto" />
+                        </Grid.ColumnDefinitions>
+                        <TextBlock Text="最新版本" Opacity="0.6" />
+                        <TextBlock Grid.Column="1" Text="{Binding LatestVersion}" />
+                    </Grid>
+                    <ui:Button Content="檢查更新" HorizontalAlignment="Right"
+                               Command="{Binding CheckForUpdateCommand}"
+                               IsEnabled="{Binding IsCheckingForUpdate, Converter={StaticResource InverseBoolConverter}}" />
+                </StackPanel>
+            </ui:CardControl.Header>
+        </ui:CardControl>
+
+        <TextBlock Text="其他" Opacity="0.6" Margin="0,0,0,8" />
+        <ui:CardControl Margin="0,0,0,8">
+            <ui:CardControl.Header>
+                <Grid>
+                    <Grid.ColumnDefinitions>
+                        <ColumnDefinition Width="*" />
+                        <ColumnDefinition Width="Auto" />
+                    </Grid.ColumnDefinitions>
+                    <TextBlock Text="意見回饋" VerticalAlignment="Center" />
+                    <ui:Button Grid.Column="1" Icon="{ui:SymbolIcon Mail24}" Command="{Binding OpenFeedbackEmailCommand}" />
+                </Grid>
+            </ui:CardControl.Header>
+        </ui:CardControl>
+
+        <ui:CardControl>
+            <ui:CardControl.Header>
+                <Grid>
+                    <Grid.ColumnDefinitions>
+                        <ColumnDefinition Width="*" />
+                        <ColumnDefinition Width="Auto" />
+                    </Grid.ColumnDefinitions>
+                    <StackPanel>
+                        <TextBlock Text="清除所有資料" />
+                        <TextBlock Text="刪除全部菜單與偏好設定，此操作無法復原" Opacity="0.6" FontSize="11" />
+                    </StackPanel>
+                    <ui:Button Grid.Column="1" Icon="{ui:SymbolIcon Delete24}" Appearance="Danger"
+                               Command="{Binding ClearAllDataCommand}" />
+                </Grid>
+            </ui:CardControl.Header>
+        </ui:CardControl>
+
+    </StackPanel>
+</UserControl>
