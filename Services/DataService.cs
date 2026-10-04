@@ -145,11 +145,13 @@ namespace PCBuilder.Services
             show(scope.ServiceProvider.GetRequiredService<NotificationService>());
         }
 
+        private Task<AppDbContext> CreateDbContextAsync() =>
+            serviceProvider.GetRequiredService<IDbContextFactory<AppDbContext>>().CreateDbContextAsync();
+
         // 建立資料庫與資料表，回傳是否已有商品目錄
         private async Task<bool> EnsureDatabaseAsync()
         {
-            using var scope = serviceProvider.CreateScope();
-            var dbContext = scope.ServiceProvider.GetRequiredService<AppDbContext>();
+            await using var dbContext = await CreateDbContextAsync();
             await dbContext.Database.EnsureCreatedAsync();
 
             // EnsureCreatedAsync 只在資料庫不存在時建表，舊版建立的資料庫不會補上之後新增的資料表；
@@ -210,8 +212,7 @@ namespace PCBuilder.Services
         {
             try
             {
-                using var scope = serviceProvider.CreateScope();
-                var dbContext = scope.ServiceProvider.GetRequiredService<AppDbContext>();
+                await using var dbContext = await CreateDbContextAsync();
 
                 using var request = new HttpRequestMessage(HttpMethod.Get, ProductDataUrl);
                 // 資料庫沒有商品時（例如剛建立）不能帶 ETag，否則伺服器回 304 會什麼都拿不到

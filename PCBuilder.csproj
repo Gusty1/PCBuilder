@@ -12,25 +12,27 @@
 
   <ItemGroup>
     <!-- MVVM -->
-    <PackageReference Include="CommunityToolkit.Mvvm" Version="8.4.0" />
+    <PackageReference Include="CommunityToolkit.Mvvm" Version="8.4.2" />
     <PackageReference Include="Microsoft.Web.WebView2" Version="1.0.4258.31" />
 
     <!-- UI -->
-    <PackageReference Include="WPF-UI" Version="4.*" />
+    <!-- 固定版本：浮動的 4.* 會讓不同時間建置拿到不同版本，畫面可能在沒改程式的情況下改變 -->
+    <PackageReference Include="WPF-UI" Version="4.3.0" />
 
     <!-- Data -->
-    <PackageReference Include="Microsoft.EntityFrameworkCore" Version="10.0.3" />
-    <PackageReference Include="Microsoft.EntityFrameworkCore.Sqlite" Version="10.0.3" />
+    <PackageReference Include="Microsoft.EntityFrameworkCore" Version="10.0.12" />
+    <PackageReference Include="Microsoft.EntityFrameworkCore.Sqlite" Version="10.0.12" />
 
     <!-- HTTP -->
-    <PackageReference Include="Microsoft.Extensions.Http" Version="10.0.3" />
+    <PackageReference Include="Microsoft.Extensions.Http" Version="10.0.12" />
 
     <!-- DI + Hosting -->
-    <PackageReference Include="Microsoft.Extensions.Hosting" Version="10.0.3" />
+    <PackageReference Include="Microsoft.Extensions.Hosting" Version="10.0.12" />
 
     <!-- Hardware -->
-    <PackageReference Include="System.Management" Version="10.0.3" />
-    <PackageReference Include="LibreHardwareMonitorLib" Version="0.9.4" />
+    <PackageReference Include="System.Management" Version="10.0.12" />
+    <!-- 0.9.5 起改用 PawnIO 讀取 CPU 溫度等底層感測器（不再內含有已知漏洞的 WinRing0 驅動），使用者需另外安裝 PawnIO -->
+    <PackageReference Include="LibreHardwareMonitorLib" Version="0.9.6" />
   </ItemGroup>
 
   <ItemGroup>

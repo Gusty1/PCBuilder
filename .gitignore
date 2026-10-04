@@ -152,6 +152,8 @@ publish/
 # TODO: Comment the next line if you want to checkin your web deploy settings
 # but database connection strings (with potential passwords) will be unencrypted
 *.pubxml
+# 本機資料夾發佈設定只有打包選項、沒有密碼，納入版本控制
+!Properties/PublishProfiles/FolderProfile.pubxml
 *.publishproj
 
 # Microsoft Azure Web App publish settings. Comment the next line if you want to

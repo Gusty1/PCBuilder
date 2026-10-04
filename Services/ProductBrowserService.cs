@@ -1,3 +1,4 @@
+using Microsoft.Web.WebView2.Core;
 using PCBuilder.Views;
 using System.Windows;
 
@@ -10,10 +11,19 @@ namespace PCBuilder.Services
     public class ProductBrowserService(LinkOpenerService linkOpenerService)
     {
         private ProductBrowserWindow? _window;
+        // 是否能用內嵌瀏覽器：null 代表還沒檢查。不能用時之後都直接開外部瀏覽器，不必每次先跳出一個空視窗再關掉
+        private bool? _isWebViewAvailable;
 
         public async Task OpenAsync(string? url)
         {
             if (string.IsNullOrWhiteSpace(url)) return;
+
+            _isWebViewAvailable ??= IsWebViewRuntimeInstalled();
+            if (_isWebViewAvailable == false)
+            {
+                linkOpenerService.OpenExternalLink(url);
+                return;
+            }
 
             if (_window is null)
             {
@@ -28,8 +38,23 @@ namespace PCBuilder.Services
 
             if (!await window.NavigateAsync(url))
             {
+                // 執行環境有安裝但初始化失敗（例如檔案損毀）：同樣記下來，之後直接用外部瀏覽器
+                _isWebViewAvailable = false;
                 window.Close();
                 linkOpenerService.OpenExternalLink(url);
+            }
+        }
+
+        private static bool IsWebViewRuntimeInstalled()
+        {
+            try
+            {
+                return !string.IsNullOrEmpty(CoreWebView2Environment.GetAvailableBrowserVersionString());
+            }
+            catch (Exception ex)
+            {
+                AppLog.Error("找不到 WebView2 執行環境，改用外部瀏覽器開啟連結", ex);
+                return false;
             }
         }
     }

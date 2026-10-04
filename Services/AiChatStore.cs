@@ -29,7 +29,7 @@ namespace PCBuilder.Services
         {
             try
             {
-                File.WriteAllText(AppPaths.AiChatPath, JsonSerializer.Serialize(chat));
+                AtomicFile.WriteAllText(AppPaths.AiChatPath, JsonSerializer.Serialize(chat));
             }
             catch (Exception ex) when (ex is IOException or UnauthorizedAccessException)
             {

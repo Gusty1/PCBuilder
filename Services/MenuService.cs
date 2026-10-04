@@ -11,8 +11,9 @@ namespace PCBuilder.Services
     /// 首頁我的菜單的商品相關服務的實作
     /// </summary>
     /// <seealso cref="CommunityToolkit.Mvvm.ComponentModel.ObservableObject" />
-    public class MenuService(AppDbContext dbContext, NotificationService notificationService, CoolPcService coolPcService,
-        AppPreferences preferences) : ObservableObject
+    // 每個方法各自建立短暫的 DbContext（見 App.xaml.cs 的 AddDbContextFactory），MenuCategories 是讀取當下的快照
+    public class MenuService(IDbContextFactory<AppDbContext> dbContextFactory, NotificationService notificationService,
+        CoolPcService coolPcService, AppPreferences preferences) : ObservableObject
     {
         private static readonly string CoolPC = "https://www.coolpc.com.tw/tmp/";
         private const string LastMenuIdKey = "LastMenuId";
@@ -34,18 +35,13 @@ namespace PCBuilder.Services
             CurrentMenuChanged?.Invoke();
         }
 
+        // 只發 PropertyChanged、不觸發 OnStateChanged：OnStateChanged 代表菜單資料變了，
+        // 首頁、菜單管理頁、AI 側邊欄收到都會重新載入，生成估價單時不必因為載入狀態切換多跑兩次
         private bool _isLoading = false;
         public bool IsLoading
         {
             get => _isLoading;
-            private set
-            {
-                // 當值改變時，更新屬性並觸發 OnChange 事件通知 UI
-                if (SetProperty(ref _isLoading, value))
-                {
-                    OnStateChanged?.Invoke();
-                }
-            }
+            private set => SetProperty(ref _isLoading, value);
         }
 
         private List<MenuCategory> _menuCategories = [];
@@ -65,28 +61,32 @@ namespace PCBuilder.Services
 
         public async Task AddMenuCategory()
         {
-            var count = await dbContext.MenuCategory.CountAsync(); // 使用非同步
+            var name = "新菜單";
             try
             {
-                dbContext.MenuCategory.Add(new MenuCategory
-                {
-                    Name = $"菜單 {count + 1}",
-                });
-                var result = await dbContext.SaveChangesAsync(); // 使用非同步
+                await using var dbContext = await dbContextFactory.CreateDbContextAsync();
+                // 從「目前數量 + 1」開始找沒用過的編號：只用數量的話，刪掉中間的菜單後會產生同名菜單（例如兩個「菜單 3」）
+                var names = await dbContext.MenuCategory.Select(m => m.Name).ToListAsync();
+                var number = names.Count + 1;
+                while (names.Contains($"菜單 {number}")) number++;
+                name = $"菜單 {number}";
+
+                dbContext.MenuCategory.Add(new MenuCategory { Name = name });
+                var result = await dbContext.SaveChangesAsync();
                 if (result != 0)
                 {
-                    notificationService.ShowSuccess($"菜單 {count + 1} 建立成功");
+                    notificationService.ShowSuccess($"{name} 建立成功");
                 }
                 else
                 {
-                    notificationService.ShowError($"菜單 {count + 1} 建立失敗");
+                    notificationService.ShowError($"{name} 建立失敗");
                 }
                 await GetMenuCategoriesAsync();
             }
             catch (Exception ex)
             {
                 Debug.WriteLine($"新增菜單時發生錯誤: {ex.Message}");
-                notificationService.ShowError($"菜單 {count + 1} 建立失敗");
+                notificationService.ShowError($"{name} 建立失敗");
             }
         }
 
@@ -94,6 +94,7 @@ namespace PCBuilder.Services
         {
             try
             {
+                await using var dbContext = await dbContextFactory.CreateDbContextAsync();
                 var result = await dbContext.MenuCategory.Include(x => x.MenuProducts).ToListAsync();
                 MenuCategories = result;
             }
@@ -111,6 +112,10 @@ namespace PCBuilder.Services
             {
                 if (menuCategory == null || myCategoryDTO == null || myProductDTO == null) return;
 
+                await using var dbContext = await dbContextFactory.CreateDbContextAsync();
+                var currentMenuCategory = await dbContext.MenuCategory.FirstOrDefaultAsync(x => x.Id == menuCategory.Id);
+                if (currentMenuCategory == null) return;
+
                 var existProduct = await dbContext.MenuProduct.FirstOrDefaultAsync(x =>
                     x.ProductName == myProductDTO.RawText && x.MenuCategoryId == menuCategory.Id);
 
@@ -124,6 +129,8 @@ namespace PCBuilder.Services
                     {
                         existProduct.Qty = qty;
                     }
+                    // 修改數量、移除商品也是修改菜單，要更新「最後修改」
+                    currentMenuCategory.ReviseDate = DateTime.Now;
                 }
                 else if (qty > 0)
                 {
@@ -132,11 +139,7 @@ namespace PCBuilder.Services
                     var product = await dbContext.Product.FirstOrDefaultAsync(x => x.RawText == myProductDTO.RawText);
                     if (findCategory == null || subcategory == null || product == null) return;
 
-                    var currentMenuCategory = await dbContext.MenuCategory.FirstOrDefaultAsync(x => x.Id == menuCategory.Id);
-                    if (currentMenuCategory != null)
-                    {
-                        currentMenuCategory.ReviseDate = DateTime.Now;
-                    }
+                    currentMenuCategory.ReviseDate = DateTime.Now;
 
                     dbContext.MenuProduct.Add(new MenuProduct
                     {
@@ -167,6 +170,7 @@ namespace PCBuilder.Services
         {
             try
             {
+                await using var dbContext = await dbContextFactory.CreateDbContextAsync();
                 if (menuCategory == null)
                 {
                     return [];
@@ -195,6 +199,7 @@ namespace PCBuilder.Services
         {
             try
             {
+                await using var dbContext = await dbContextFactory.CreateDbContextAsync();
                 var myMenuCategories = await dbContext.MenuCategory.Include(x => x.MenuProducts).ToListAsync();
                 var result = new List<MyMenuCategoryDTO>();
                 foreach (var menuCategory in myMenuCategories)
@@ -232,6 +237,7 @@ namespace PCBuilder.Services
         {
             try
             {
+                await using var dbContext = await dbContextFactory.CreateDbContextAsync();
                 var findMenuCategory = await dbContext.MenuCategory.FirstOrDefaultAsync(x => x.Id == id);
                 if (findMenuCategory == null) return;
 
@@ -262,6 +268,7 @@ namespace PCBuilder.Services
         {
             try
             {
+                await using var dbContext = await dbContextFactory.CreateDbContextAsync();
                 var menu = await dbContext.MenuCategory.FirstOrDefaultAsync(x => x.Id == id);
                 var newName = name?.Trim();
                 if (menu is null || menu.Name == newName) return;
@@ -285,6 +292,7 @@ namespace PCBuilder.Services
         {
             try
             {
+                await using var dbContext = await dbContextFactory.CreateDbContextAsync();
                 var product = await dbContext.MenuProduct.FirstOrDefaultAsync(x => x.Id == menuProductId);
                 if (product == null) return;
 
@@ -309,6 +317,7 @@ namespace PCBuilder.Services
         {
             try
             {
+                await using var dbContext = await dbContextFactory.CreateDbContextAsync();
                 var product = await dbContext.MenuProduct.FirstOrDefaultAsync(x => x.Id == menuProductId);
                 if (product == null) return;
 
@@ -330,6 +339,7 @@ namespace PCBuilder.Services
         {
             try
             {
+                await using var dbContext = await dbContextFactory.CreateDbContextAsync();
                 return await dbContext.StagedProduct.OrderBy(x => x.Id).ToListAsync();
             }
             catch (Exception ex)
@@ -344,6 +354,7 @@ namespace PCBuilder.Services
         {
             try
             {
+                await using var dbContext = await dbContextFactory.CreateDbContextAsync();
                 var product = await dbContext.MenuProduct.FirstOrDefaultAsync(x => x.Id == menuProductId);
                 if (product == null) return;
                 var menuCategory = await dbContext.MenuCategory.FirstOrDefaultAsync(x => x.Id == product.MenuCategoryId);
@@ -378,6 +389,7 @@ namespace PCBuilder.Services
         {
             try
             {
+                await using var dbContext = await dbContextFactory.CreateDbContextAsync();
                 var staged = await dbContext.StagedProduct.FirstOrDefaultAsync(x => x.Id == stagedProductId);
                 var menuCategory = await dbContext.MenuCategory.FirstOrDefaultAsync(x => x.Id == menuId);
                 if (staged == null || menuCategory == null || menuCategory.IsSend) return;
@@ -419,6 +431,7 @@ namespace PCBuilder.Services
         {
             try
             {
+                await using var dbContext = await dbContextFactory.CreateDbContextAsync();
                 var staged = await dbContext.StagedProduct.FirstOrDefaultAsync(x => x.Id == stagedProductId);
                 if (staged == null) return;
 
@@ -438,6 +451,7 @@ namespace PCBuilder.Services
         {
             try
             {
+                await using var dbContext = await dbContextFactory.CreateDbContextAsync();
                 // 刪除所有 MenuProduct（子項），再刪除 MenuCategory（父項）；零件暫存區也一起清空
                 dbContext.MenuProduct.RemoveRange(dbContext.MenuProduct);
                 dbContext.MenuCategory.RemoveRange(dbContext.MenuCategory);
@@ -460,6 +474,7 @@ namespace PCBuilder.Services
         {
             try
             {
+                await using var dbContext = await dbContextFactory.CreateDbContextAsync();
                 IsLoading = true;
                 var findMenu = await dbContext.MenuCategory.Include(x => x.MenuProducts).FirstOrDefaultAsync(x => x.Id == id);
                 if (findMenu == null) return;

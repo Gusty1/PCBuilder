@@ -22,6 +22,11 @@ namespace PCBuilder.Views
             DataContext = viewModel;
 
             Unloaded += (_, _) => viewModel.Dispose();
+            // 待拖曳的商品只屬於「這一次」按壓：頁面上任何地方按下或放開左鍵都先清掉，按到可拖曳的列時再由該列重新記下
+            // （頁面比裡面的列先收到 Preview 按下事件）。不清的話，只按一下沒拖曳的商品會留著，之後在別處按住滑過其他列就被拖出去。
+            // handledEventsToo：上層的 WPF-UI 控制項可能先把滑鼠事件標記為已處理，一般的 += 訂閱會收不到
+            AddHandler(PreviewMouseLeftButtonDownEvent, new MouseButtonEventHandler((_, _) => ClearPendingDrag()), handledEventsToo: true);
+            AddHandler(PreviewMouseLeftButtonUpEvent, new MouseButtonEventHandler((_, _) => ClearPendingDrag()), handledEventsToo: true);
         }
 
         // 菜單清單比這個寬度窄時（例如開著 AI 面板），標題列放不下名稱框、刪除鈕與一整行摘要（實測約需 740），
@@ -55,26 +60,46 @@ namespace PCBuilder.Views
 
         private Point _dragStart;
         private object? _pendingDragItem;
+        private UIElement? _pendingDragSource;
 
-        // 記下按下的位置與商品（MenuProduct 或 StagedProduct）；從輸入框、按鈕、商品連結按下的不算拖曳，那些地方要照常操作
+        // 記下按下的位置、那一列與商品（MenuProduct 或 StagedProduct）；從輸入框、按鈕、商品連結按下的不算拖曳，那些地方要照常操作
         private void DragSource_PreviewMouseLeftButtonDown(object sender, MouseButtonEventArgs e)
         {
             var source = (FrameworkElement)sender;
-            _pendingDragItem = IsFromInteractiveElement(e.OriginalSource, source) ? null : source.DataContext;
+            if (IsFromInteractiveElement(e.OriginalSource, source))
+            {
+                ClearPendingDrag();
+                return;
+            }
+            _pendingDragItem = source.DataContext;
+            _pendingDragSource = source;
             _dragStart = e.GetPosition(this);
+        }
+
+        private void ClearPendingDrag()
+        {
+            _pendingDragItem = null;
+            _pendingDragSource = null;
         }
 
         private void DragSource_MouseMove(object sender, MouseEventArgs e)
         {
-            if (_pendingDragItem is null || e.LeftButton != MouseButtonState.Pressed) return;
+            if (_pendingDragItem is null || _pendingDragSource is null) return;
+            // 在視窗外放開左鍵時收不到 MouseUp，回來移動時按鈕已放開，也要清掉
+            if (e.LeftButton != MouseButtonState.Pressed)
+            {
+                ClearPendingDrag();
+                return;
+            }
 
             var offset = e.GetPosition(this) - _dragStart;
             if (Math.Abs(offset.X) < SystemParameters.MinimumHorizontalDragDistance
                 && Math.Abs(offset.Y) < SystemParameters.MinimumVerticalDragDistance) return;
 
+            // 一律以按下的那一列為來源：滑鼠可能已經移到別的列上（甚至是已生成估價單的菜單）
             var item = _pendingDragItem;
-            _pendingDragItem = null;
-            var source = (UIElement)sender;
+            var source = _pendingDragSource;
+            ClearPendingDrag();
             // 已生成估價單的菜單不能修改，裡面的商品不能拖出來
             if (item is MenuProduct && !IsInEditableMenu(source)) return;
 

@@ -29,17 +29,15 @@ namespace PCBuilder.Services
                 var json = File.ReadAllText(_filePath);
                 return JsonSerializer.Deserialize<Dictionary<string, JsonElement>>(json) ?? [];
             }
-            catch
+            catch (Exception ex) when (ex is IOException or UnauthorizedAccessException or JsonException)
             {
+                // 讀不到就用預設值啟動，但要留下紀錄，才知道設定是因為檔案壞掉而被重置
+                AppLog.Error("讀取偏好設定失敗，改用預設值", ex);
                 return [];
             }
         }
 
-        private void Save()
-        {
-            var json = JsonSerializer.Serialize(_data);
-            File.WriteAllText(_filePath, json);
-        }
+        private void Save() => AtomicFile.WriteAllText(_filePath, JsonSerializer.Serialize(_data));
 
         public int? GetInt(string key) =>
             _data.TryGetValue(key, out var value) && value.TryGetInt32(out var i) ? i : null;

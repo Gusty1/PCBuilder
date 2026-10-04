@@ -11,7 +11,7 @@ namespace PCBuilder.Services
     /// 首頁原價屋的商品相關服務的實作
     /// </summary>
     /// <seealso cref="CommunityToolkit.Mvvm.ComponentModel.ObservableObject" />
-    public class CategoryService(AppDbContext dbContext) : ObservableObject
+    public class CategoryService(IDbContextFactory<AppDbContext> dbContextFactory) : ObservableObject
     {
         private bool _isLoading = false;
         public bool IsLoading
@@ -37,11 +37,14 @@ namespace PCBuilder.Services
             try
             {
                 IsLoading = true;
+                // 每次用新的 DbContext 且不追蹤：商品目錄會被背景更新整批替換，沿用舊的 DbContext 會拿到它追蹤中的舊資料
+                await using var dbContext = await dbContextFactory.CreateDbContextAsync();
                 // 這是 EF Core 的「預先載入 (Eager Loading)」功能
                 // .Include(...): 告訴 EF Core，在查詢 Categories 的時候，請「一併載入」每一個 Category 關聯的 Subcategories 列表。
                 // .ThenInclude(...): 接著，對於每一個載入的 Subcategory，請「再一併載入」它關聯的 Products 列表。
                 // .ToListAsync(): 最後，將這個完整的、包含所有層級資料的查詢，非同步地執行並轉換成一個 List。
                 var result = await dbContext.Category
+                    .AsNoTracking()
                     .OrderBy(c => c.CategoryId)
                     .Include(c => c.Subcategories)
                     .ThenInclude(s => s.Products)

@@ -9,7 +9,7 @@ namespace PCBuilder.Services
     /// <summary>
     /// 加密設定存取：以 DPAPI（CurrentUser）加密後存進 SQLite，其他 Windows 帳號或電腦拿到 DB 也無法解密。
     /// </summary>
-    public class AppSettingsService(AppDbContext dbContext)
+    public class AppSettingsService(IDbContextFactory<AppDbContext> dbContextFactory)
     {
         public const string GeminiApiKey = "GeminiApiKey";
 
@@ -18,6 +18,7 @@ namespace PCBuilder.Services
 
         public async Task<string?> GetSecretAsync(string key)
         {
+            await using var dbContext = await dbContextFactory.CreateDbContextAsync();
             var setting = await dbContext.AppSettings.AsNoTracking().FirstOrDefaultAsync(x => x.Key == key);
             if (setting is null) return null;
 
@@ -35,6 +36,7 @@ namespace PCBuilder.Services
         /// <summary>儲存加密設定；value 為空白時刪除該設定。</summary>
         public async Task SetSecretAsync(string key, string? value)
         {
+            await using var dbContext = await dbContextFactory.CreateDbContextAsync();
             var setting = await dbContext.AppSettings.FirstOrDefaultAsync(x => x.Key == key);
 
             if (string.IsNullOrWhiteSpace(value))

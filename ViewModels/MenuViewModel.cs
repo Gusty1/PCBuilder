@@ -4,6 +4,7 @@ using PCBuilder.Models;
 using PCBuilder.Models.DTOs;
 using PCBuilder.Services;
 using System.Collections.ObjectModel;
+using System.ComponentModel;
 
 namespace PCBuilder.ViewModels
 {
@@ -28,6 +29,7 @@ namespace PCBuilder.ViewModels
             _productBrowserService = productBrowserService;
 
             _menuService.OnStateChanged += HandleMenuStateChanged;
+            _menuService.PropertyChanged += HandleMenuServicePropertyChanged;
 
             _ = LoadAsync();
         }
@@ -66,10 +68,13 @@ namespace PCBuilder.ViewModels
             OnPropertyChanged(nameof(HasStagedProducts));
         }
 
-        private void HandleMenuStateChanged()
+        // OnStateChanged 只在菜單資料變更時觸發（載入狀態不會），收到才重新載入
+        private void HandleMenuStateChanged() => _ = LoadAsync();
+
+        // 生成估價單的載入狀態：MenuService.IsLoading 只發 PropertyChanged
+        private void HandleMenuServicePropertyChanged(object? sender, PropertyChangedEventArgs e)
         {
-            OnPropertyChanged(nameof(IsLoading));
-            _ = LoadAsync();
+            if (e.PropertyName == nameof(MenuService.IsLoading)) OnPropertyChanged(nameof(IsLoading));
         }
 
         [RelayCommand]
@@ -127,6 +132,7 @@ namespace PCBuilder.ViewModels
         public void Dispose()
         {
             _menuService.OnStateChanged -= HandleMenuStateChanged;
+            _menuService.PropertyChanged -= HandleMenuServicePropertyChanged;
         }
     }
 }

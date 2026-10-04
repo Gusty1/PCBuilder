@@ -10,7 +10,7 @@ namespace PCBuilder.Services
     /// <summary>
     /// 取得電腦硬體資訊的服務實作。
     /// 靜態欄位（名稱、容量、規格）來自 WMI；感測器數值（溫度、負載、風扇）來自 LibreHardwareMonitor。
-    /// LHM 感測器需要以系統管理員身份執行，未取得權限時感測器欄位保持 null。
+    /// LHM 感測器需要以系統管理員身份執行，且 LHM 0.9.5 起需要系統已安裝 PawnIO 驅動；條件不足時感測器欄位保持 null。
     /// </summary>
     public class HardwareService : ObservableObject, IDisposable
     {
@@ -46,6 +46,8 @@ namespace PCBuilder.Services
             return new WindowsPrincipal(id).IsInRole(WindowsBuiltInRole.Administrator);
         }
 
+        private const double BytesPerGb = 1024.0 * 1024.0 * 1024.0;
+
         public async Task ScanComputerInfoAsync()
         {
             if (_cachedInfo != null || IsScanning) return;
@@ -53,99 +55,19 @@ namespace PCBuilder.Services
             try
             {
                 IsScanning = true;
-
-                var info = await Task.Run(() =>
+                _cachedInfo = await Task.Run(() =>
                 {
                     var ci = new ComputerInfo();
-
-                    // ── WMI：靜態欄位（不需 admin） ──────────────────────────────
-
-                    using var boardSearcher = new ManagementObjectSearcher("SELECT * FROM Win32_BaseBoard");
-                    var board = boardSearcher.Get().OfType<ManagementObject>().FirstOrDefault();
-                    if (board != null)
-                    {
-                        ci.MotherboardManufacturer = board["Manufacturer"]?.ToString() ?? "N/A";
-                        ci.MotherboardProduct = board["Product"]?.ToString() ?? "N/A";
-                    }
-
-                    using var cpuSearcher = new ManagementObjectSearcher("SELECT * FROM Win32_Processor");
-                    var cpu = cpuSearcher.Get().OfType<ManagementObject>().FirstOrDefault();
-                    if (cpu != null)
-                    {
-                        ci.CpuName = cpu["Name"]?.ToString()?.Trim() ?? "N/A";
-                        ci.CpuCores = (uint)cpu["NumberOfCores"];
-                        ci.CpuThreads = (uint)cpu["NumberOfLogicalProcessors"];
-                        ci.CpuMaxClockSpeedMhz = (uint)cpu["MaxClockSpeed"];
-                    }
-
-                    // GPU：名稱 + 驅動版本來自 WMI；VRAM 用 ulong 避免 >4GB overflow
-                    using var gpuSearcher = new ManagementObjectSearcher("SELECT * FROM Win32_VideoController");
-                    foreach (ManagementObject gpu in gpuSearcher.Get())
-                    {
-                        // WMI 回傳的 AdapterRAM 實際裝箱型別依驅動而異（常見是 uint，也可能是 ulong），
-                        // 直接轉型 (ulong?) 在型別不符時會 InvalidCastException，改用 Convert 安全轉換。
-                        var vramBytes = gpu["AdapterRAM"] is { } raw ? Convert.ToUInt64(raw) : 0UL;
-                        ci.Gpus!.Add(new GpuInfo
-                        {
-                            Name = gpu["Caption"]?.ToString() ?? "N/A",
-                            AdapterRamGb = Math.Round(vramBytes / (1024.0 * 1024.0 * 1024.0), 2),
-                            DriverVersion = gpu["DriverVersion"]?.ToString() ?? "N/A"
-                        });
-                    }
-
-                    using var ramSearcher = new ManagementObjectSearcher("SELECT * FROM Win32_PhysicalMemory");
-                    foreach (ManagementObject stick in ramSearcher.Get())
-                    {
-                        var capBytes = stick["Capacity"] is { } cap ? Convert.ToUInt64(cap) : 0UL;
-                        ci.RamSticks!.Add(new RamStickInfo
-                        {
-                            CapacityGb = Math.Round(capBytes / (1024.0 * 1024.0 * 1024.0), 2),
-                            SpeedMhz = stick["Speed"] is { } speed ? Convert.ToUInt32(speed) : 0
-                        });
-                    }
-                    ci.TotalPhysicalMemoryGb = Math.Round(ci.RamSticks!.Sum(r => r.CapacityGb), 2);
-
-                    using var diskSearcher = new ManagementObjectSearcher("SELECT * FROM Win32_DiskDrive");
-                    foreach (ManagementObject disk in diskSearcher.Get())
-                    {
-                        var sizeBytes = disk["Size"] is { } size ? Convert.ToUInt64(size) : 0UL;
-                        if (sizeBytes > 0)
-                        {
-                            ci.Disks!.Add(new DiskInfo
-                            {
-                                Model = disk["Model"]?.ToString() ?? "N/A",
-                                SizeGb = Math.Round(sizeBytes / (1024.0 * 1024.0 * 1024.0), 2)
-                            });
-                        }
-                    }
-
-                    // ── LHM：感測器欄位（需要 admin，無權限時靜默跳過） ──────────
-
-                    if (IsAdmin())
-                    {
-                        try
-                        {
-                            _lhm = new Computer
-                            {
-                                IsCpuEnabled = true,
-                                IsGpuEnabled = true,
-                                IsMemoryEnabled = true,
-                                IsStorageEnabled = true,
-                                IsMotherboardEnabled = true,
-                            };
-                            _lhm.Open();
-                            ReadLhmSensors(ci);
-                        }
-                        catch (Exception ex)
-                        {
-                            Debug.WriteLine($"LHM 初始化失敗: {ex.Message}");
-                        }
-                    }
-
+                    // 每種硬體分開讀：某一項 WMI 查詢失敗（例如驅動回傳意外的型別）時，其他硬體資訊照樣顯示
+                    TryRead("主機板", () => ReadMotherboard(ci));
+                    TryRead("CPU", () => ReadCpu(ci));
+                    TryRead("顯示卡", () => ReadGpus(ci));
+                    TryRead("記憶體", () => ReadRam(ci));
+                    TryRead("硬碟", () => ReadDisks(ci));
+                    // LHM 感測器需要系統管理員權限，沒有權限時跳過
+                    if (IsAdmin()) TryRead("感測器", () => OpenSensors(ci));
                     return ci;
                 });
-
-                _cachedInfo = info;
             }
             catch (Exception ex)
             {
@@ -155,6 +77,102 @@ namespace PCBuilder.Services
             {
                 IsScanning = false;
             }
+        }
+
+        private static void TryRead(string part, Action read)
+        {
+            try
+            {
+                read();
+            }
+            catch (Exception ex)
+            {
+                Debug.WriteLine($"讀取{part}資訊失敗: {ex.Message}");
+            }
+        }
+
+        // WMI 回傳的數值裝箱型別依驅動而異（常見是 uint，也可能是 ulong），直接轉型在型別不符時會 InvalidCastException，一律用 Convert
+        private static uint? ToUInt32(object? value) => value is null ? null : Convert.ToUInt32(value);
+
+        private static ulong ToUInt64(object? value) => value is null ? 0UL : Convert.ToUInt64(value);
+
+        private static double ToGb(ulong bytes) => Math.Round(bytes / BytesPerGb, 2);
+
+        private static IEnumerable<ManagementObject> Query(string wql)
+        {
+            using var searcher = new ManagementObjectSearcher(wql);
+            return [.. searcher.Get().OfType<ManagementObject>()];
+        }
+
+        private static void ReadMotherboard(ComputerInfo ci)
+        {
+            if (Query("SELECT * FROM Win32_BaseBoard").FirstOrDefault() is not { } board) return;
+            ci.MotherboardManufacturer = board["Manufacturer"]?.ToString() ?? "N/A";
+            ci.MotherboardProduct = board["Product"]?.ToString() ?? "N/A";
+        }
+
+        private static void ReadCpu(ComputerInfo ci)
+        {
+            if (Query("SELECT * FROM Win32_Processor").FirstOrDefault() is not { } cpu) return;
+            ci.CpuName = cpu["Name"]?.ToString()?.Trim() ?? "N/A";
+            ci.CpuCores = ToUInt32(cpu["NumberOfCores"]);
+            ci.CpuThreads = ToUInt32(cpu["NumberOfLogicalProcessors"]);
+            ci.CpuMaxClockSpeedMhz = ToUInt32(cpu["MaxClockSpeed"]);
+        }
+
+        // GPU：名稱 + 驅動版本來自 WMI；VRAM 用 ulong 避免 >4GB overflow
+        private static void ReadGpus(ComputerInfo ci)
+        {
+            foreach (var gpu in Query("SELECT * FROM Win32_VideoController"))
+            {
+                ci.Gpus!.Add(new GpuInfo
+                {
+                    Name = gpu["Caption"]?.ToString() ?? "N/A",
+                    AdapterRamGb = ToGb(ToUInt64(gpu["AdapterRAM"])),
+                    DriverVersion = gpu["DriverVersion"]?.ToString() ?? "N/A"
+                });
+            }
+        }
+
+        private static void ReadRam(ComputerInfo ci)
+        {
+            foreach (var stick in Query("SELECT * FROM Win32_PhysicalMemory"))
+            {
+                ci.RamSticks!.Add(new RamStickInfo
+                {
+                    CapacityGb = ToGb(ToUInt64(stick["Capacity"])),
+                    SpeedMhz = ToUInt32(stick["Speed"]) ?? 0
+                });
+            }
+            ci.TotalPhysicalMemoryGb = Math.Round(ci.RamSticks!.Sum(r => r.CapacityGb), 2);
+        }
+
+        private static void ReadDisks(ComputerInfo ci)
+        {
+            foreach (var disk in Query("SELECT * FROM Win32_DiskDrive"))
+            {
+                var sizeBytes = ToUInt64(disk["Size"]);
+                if (sizeBytes == 0) continue;
+                ci.Disks!.Add(new DiskInfo
+                {
+                    Model = disk["Model"]?.ToString() ?? "N/A",
+                    SizeGb = ToGb(sizeBytes)
+                });
+            }
+        }
+
+        private void OpenSensors(ComputerInfo ci)
+        {
+            _lhm = new Computer
+            {
+                IsCpuEnabled = true,
+                IsGpuEnabled = true,
+                IsMemoryEnabled = true,
+                IsStorageEnabled = true,
+                IsMotherboardEnabled = true,
+            };
+            _lhm.Open();
+            ReadLhmSensors(ci);
         }
 
         private void ReadLhmSensors(ComputerInfo ci)

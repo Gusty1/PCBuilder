@@ -55,8 +55,9 @@ namespace PCBuilder
                     services.AddSingleton<LinkOpenerService>();
                     services.AddSingleton<ProductBrowserService>();
 
-                    // EF Core
-                    services.AddDbContext<AppDbContext>(options =>
+                    // EF Core：用工廠讓每次操作建立短暫的 DbContext。服務都是 Singleton，若直接注入 DbContext，
+                    // 同一個 DbContext 會活到 App 關閉、一直追蹤第一次讀到的資料，背景更新商品後仍讀到舊價格
+                    services.AddDbContextFactory<AppDbContext>(options =>
                         options.UseSqlite($"Data Source={AppPaths.DbPath}"));
 
                     // 所有 HttpClient 共用：連線時先試 IPv4（原因見 ConnectIpv4FirstAsync）；

@@ -199,7 +199,7 @@
                     </ui:CardControl>
                 </StackPanel>
 
-                <TextBlock Text="部分感測器資訊需要以系統管理員身分執行才會顯示" Opacity="0.5" FontSize="11"
+                <TextBlock Text="部分感測器資訊（例如溫度）需要安裝 PawnIO 並以系統管理員身分執行才會顯示" Opacity="0.5" FontSize="11"
                            Margin="0,16,0,0" TextWrapping="Wrap" />
             </StackPanel>
         </ScrollViewer>
