@@ -47,16 +47,15 @@ Windows 桌面版的電腦組裝與比價小幫手。瀏覽[原價屋](https://w
 ## 系統需求
 
 - Windows 10 / 11（64 位元）
-- [.NET 10 Desktop Runtime](https://dotnet.microsoft.com/download/dotnet/10.0)
 - [Microsoft Edge WebView2 Runtime](https://developer.microsoft.com/microsoft-edge/webview2/)：App 內瀏覽商品頁使用，Windows 11 已內建；沒有安裝時會改用系統預設瀏覽器開啟
 - 網路連線（更新商品資料、AI 助手、產生估價單）
 
 ## 下載
 
-之後會在 [GitHub Releases](https://github.com/Gusty1/PCBuilder/releases) 發布安裝檔，App 的「設定」頁可以檢查是否有新版本。目前尚未發布，請先依下方說明從原始碼建置。
+下載最新版的 [`PCBuilder.exe`](https://github.com/Gusty1/PCBuilder/releases/latest/download/PCBuilder.exe)（或到 [GitHub Releases](https://github.com/Gusty1/PCBuilder/releases/latest) 查看各版本的更新內容），雙擊就能執行，不需要安裝，也不需要另外安裝 .NET。
 
-
-也可以用 Visual Studio 開啟 `PCBuilder.slnx` 直接執行。
+- 第一次執行時 Windows 可能跳出「Windows 已保護您的電腦」，這是因為程式沒有數位簽章，點「其他資訊」→「仍要執行」即可
+- 有新版本時 App 啟動會提示，也可以在「設定」頁檢查。按「立即更新」會下載新版、取代目前的 exe 並自動重新開啟；菜單與設定存在 `%LocalAppData%\PCBuilder`，更新後都會保留
 
 ## AI 助手設定
 
@@ -78,7 +77,7 @@ API Key 會以 Windows DPAPI 加密後存在本機，只有目前的 Windows 帳
 | `PCBuilder.log` | 錯誤記錄，回報問題時可以附上 |
 | `WebView2\` | App 內瀏覽視窗的快取 |
 
-「設定」頁的「清除所有資料」會刪除全部菜單、零件暫存區與偏好設定。要完全重置，關閉 App 後刪除整個資料夾即可。
+「設定」頁的「清除所有資料」會刪除全部菜單、零件暫存區與偏好設定。要完全重置，關閉 App 後刪除整個資料夾即可；要完全移除，再刪除 exe 與 `%TEMP%\.net\PCBuilder`（第一次執行時解壓出來的元件）。
 
 ## 技術架構
 

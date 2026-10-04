@@ -29,6 +29,7 @@ namespace PCBuilder
 
             // SQLite 不會自動建立資料夾，要在建立 DbContext 之前先建好
             Directory.CreateDirectory(AppPaths.DataFolder);
+            _ = UpdateCheckService.CleanUpAfterUpdateAsync();
 
             _host = Host.CreateDefaultBuilder()
                 // EF Core 預設 Information 等級會把首次匯入的 7000 多筆 INSERT 全部輸出；
