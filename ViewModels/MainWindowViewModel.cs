@@ -17,6 +17,7 @@ namespace PCBuilder.ViewModels
         private readonly HardwareService _hardwareService;
         private readonly Services.ThemeService _themeService;
         private readonly LinkOpenerService _linkOpenerService;
+        private readonly ProductBrowserService _productBrowserService;
         private readonly IContentDialogService _contentDialogService;
         private readonly IServiceProvider _serviceProvider;
 
@@ -25,13 +26,17 @@ namespace PCBuilder.ViewModels
             HardwareService hardwareService,
             Services.ThemeService themeService,
             LinkOpenerService linkOpenerService,
+            ProductBrowserService productBrowserService,
             IContentDialogService contentDialogService,
-            IServiceProvider serviceProvider)
+            IServiceProvider serviceProvider,
+            AiChatViewModel aiChat)
         {
+            AiChat = aiChat;
             _dataService = dataService;
             _hardwareService = hardwareService;
             _themeService = themeService;
             _linkOpenerService = linkOpenerService;
+            _productBrowserService = productBrowserService;
             _contentDialogService = contentDialogService;
             _serviceProvider = serviceProvider;
 
@@ -44,6 +49,8 @@ namespace PCBuilder.ViewModels
 
             _ = InitializeAsync();
         }
+
+        public AiChatViewModel AiChat { get; }
 
         [ObservableProperty]
         private bool isGlobalLoading = true;
@@ -60,7 +67,7 @@ namespace PCBuilder.ViewModels
             IsDarkMode = _themeService.IsDarkMode;
 
             // fire-and-forget：啟動時背景初始化資料與硬體掃描，完成後透過事件通知
-            _ = _dataService.SeedDataIfNeededAsync();
+            _ = _dataService.InitializeAsync();
             _ = _hardwareService.ScanComputerInfoAsync();
         }
 
@@ -72,11 +79,20 @@ namespace PCBuilder.ViewModels
 
         private void HandleThemeChanged() => IsDarkMode = _themeService.IsDarkMode;
 
+        /// <summary>啟動時背景檢查 GitHub 是否有新版本；要等主視窗載入後呼叫，對話框才有地方顯示。</summary>
+        public Task CheckForUpdatesAsync() =>
+            _serviceProvider.GetRequiredService<UpdateCheckService>().CheckAndNotifyUpdatesAsync();
+
         [RelayCommand]
         private void ToggleDarkMode() => _themeService.ToggleDarkMode(!IsDarkMode);
 
+        /// <summary>原價屋官網：用外部瀏覽器開啟。</summary>
         [RelayCommand]
         private void OpenExternalLink(string url) => _linkOpenerService.OpenExternalLink(url);
+
+        /// <summary>相關連結（天梯圖、組裝模擬器）：在 App 內的瀏覽視窗開啟。</summary>
+        [RelayCommand]
+        private void OpenInAppLink(string url) => _ = _productBrowserService.OpenAsync(url);
 
         [RelayCommand]
         private async Task OpenComputerInfo()
@@ -86,7 +102,8 @@ namespace PCBuilder.ViewModels
             {
                 Title = "我的電腦資訊",
                 Content = dialogContent,
-                CloseButtonText = "關閉",
+                DialogWidth = 640,
+                IsFooterVisible = false,
             };
 
             await _contentDialogService.ShowAsync(dialog, CancellationToken.None);

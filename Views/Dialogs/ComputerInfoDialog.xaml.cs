@@ -9,6 +9,8 @@ namespace PCBuilder.Views.Dialogs
         {
             InitializeComponent();
             DataContext = viewModel;
+
+            Unloaded += (_, _) => viewModel.Dispose();
         }
     }
 }

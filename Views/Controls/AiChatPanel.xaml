@@ -1,0 +1,237 @@
+<UserControl x:Class="PCBuilder.Views.Controls.AiChatPanel"
+             xmlns="http://schemas.microsoft.com/winfx/2006/xaml/presentation"
+             xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
+             xmlns:d="http://schemas.microsoft.com/expression/blend/2008"
+             xmlns:mc="http://schemas.openxmlformats.org/markup-compatibility/2006"
+             xmlns:ui="http://schemas.lepo.co/wpfui/2022/xaml"
+             xmlns:vm="clr-namespace:PCBuilder.ViewModels"
+             mc:Ignorable="d"
+             x:Name="Root"
+             d:DataContext="{d:DesignInstance Type=vm:AiChatViewModel}"
+             d:DesignHeight="700" Width="380">
+
+    <UserControl.Resources>
+        <!-- 可以用滑鼠選取的訊息文字：唯讀 TextBox 拿掉外框與底色，看起來跟 TextBlock 一樣。
+             OverridesDefaultStyle：不套主題的 TextBox 樣式，文字顏色才會沿用對話框（使用者訊息是強調色底白字）；
+             內容區用 Decorator：訊息全文都顯示，不需要 TextBox 自己的捲軸 -->
+        <Style x:Key="SelectableTextStyle" TargetType="TextBox">
+            <Setter Property="OverridesDefaultStyle" Value="True" />
+            <Setter Property="IsReadOnly" Value="True" />
+            <Setter Property="TextWrapping" Value="Wrap" />
+            <Setter Property="Background" Value="Transparent" />
+            <Setter Property="BorderThickness" Value="0" />
+            <Setter Property="Padding" Value="0" />
+            <Setter Property="Template">
+                <Setter.Value>
+                    <ControlTemplate TargetType="TextBox">
+                        <Decorator x:Name="PART_ContentHost" />
+                    </ControlTemplate>
+                </Setter.Value>
+            </Setter>
+        </Style>
+    </UserControl.Resources>
+
+    <Border BorderBrush="{DynamicResource ControlStrokeColorDefaultBrush}" BorderThickness="1,0,0,0"
+            Background="{DynamicResource LayerFillColorDefaultBrush}">
+        <Grid Margin="12">
+            <Grid.RowDefinitions>
+                <RowDefinition Height="Auto" />
+                <RowDefinition Height="Auto" />
+                <RowDefinition Height="*" />
+                <RowDefinition Height="Auto" />
+            </Grid.RowDefinitions>
+
+            <!-- 標題列 -->
+            <Grid Grid.Row="0" Margin="0,0,0,12">
+                <Grid.ColumnDefinitions>
+                    <ColumnDefinition Width="*" />
+                    <ColumnDefinition Width="Auto" />
+                    <ColumnDefinition Width="Auto" />
+                </Grid.ColumnDefinitions>
+                <StackPanel Orientation="Horizontal" VerticalAlignment="Center">
+                    <ui:SymbolIcon Symbol="ChatSparkle24" FontSize="20"
+                                   Foreground="{DynamicResource AccentTextFillColorPrimaryBrush}" />
+                    <TextBlock Text="AI 助手" FontSize="16" FontWeight="SemiBold" Margin="8,0,0,0" VerticalAlignment="Center" />
+                </StackPanel>
+                <ui:Button Grid.Column="1" Icon="{ui:SymbolIcon ChatAdd24}" ToolTip="開始新對話" Appearance="Transparent"
+                           Command="{Binding NewChatCommand}"
+                           Visibility="{Binding HasMessages, Converter={StaticResource BoolToVisibilityConverter}}" />
+                <ui:Button Grid.Column="2" Icon="{ui:SymbolIcon Dismiss24}" ToolTip="關閉" Appearance="Transparent" Margin="4,0,0,0"
+                           Command="{Binding TogglePanelCommand}" />
+            </Grid>
+
+            <!-- 推薦商品要加入的目標菜單（也會作為對話 context 帶給 AI） -->
+            <StackPanel Grid.Row="1" Margin="0,0,0,12">
+                <TextBlock Text="目標菜單（與首頁底部的菜單同步）" Opacity="0.7" FontSize="12" Margin="0,0,0,4" />
+                <!-- 跟首頁一樣：已生成估價單的菜單也列出來，但停用（樣式見 App.xaml 的 MenuOption*） -->
+                <ComboBox ItemsSource="{Binding AvailableMenus}" SelectedItem="{Binding TargetMenu}"
+                          ItemTemplate="{StaticResource MenuOptionTemplate}"
+                          ItemContainerStyle="{StaticResource MenuOptionContainerStyle}"
+                          HorizontalAlignment="Stretch"
+                          Visibility="{Binding HasMenus, Converter={StaticResource BoolToVisibilityConverter}}" />
+                <TextBlock Text="目前沒有未送出的菜單，加入商品時會詢問是否新增" Opacity="0.6" FontSize="12" TextWrapping="Wrap"
+                           Margin="0,4,0,0"
+                           Visibility="{Binding HasSelectableMenus, Converter={StaticResource InverseBoolToVisibilityConverter}}" />
+            </StackPanel>
+
+            <!-- 對話內容 -->
+            <Grid Grid.Row="2">
+                <StackPanel VerticalAlignment="Center" Margin="12"
+                            Visibility="{Binding HasMessages, Converter={StaticResource InverseBoolToVisibilityConverter}}">
+                    <TextBlock Text="問我任何組電腦的問題" FontSize="15" HorizontalAlignment="Center" Opacity="0.8" />
+                    <TextBlock Text="例如：「預算三萬幫我配一台 1080p 遊戲主機」、「我的電腦升級哪個零件最有感？」"
+                               TextWrapping="Wrap" TextAlignment="Center" Opacity="0.6" FontSize="12" Margin="0,8,0,0" />
+                </StackPanel>
+
+                <ScrollViewer x:Name="MessagesScrollViewer" VerticalScrollBarVisibility="Auto">
+                    <StackPanel>
+                        <ItemsControl ItemsSource="{Binding Messages}">
+                            <ItemsControl.ItemTemplate>
+                                <DataTemplate>
+                                    <!-- 每則訊息：對話框＋下方的複製按鈕；Margin 底部是訊息之間的間距 -->
+                                    <StackPanel Margin="0,0,0,12">
+                                        <Border Padding="10,8" CornerRadius="8" MaxWidth="330">
+                                            <Border.Style>
+                                                <Style TargetType="Border">
+                                                    <Setter Property="HorizontalAlignment" Value="Left" />
+                                                    <Setter Property="Background" Value="{DynamicResource CardBackgroundFillColorDefaultBrush}" />
+                                                    <Setter Property="BorderBrush" Value="{DynamicResource CardStrokeColorDefaultBrush}" />
+                                                    <Setter Property="BorderThickness" Value="1" />
+                                                    <Style.Triggers>
+                                                        <DataTrigger Binding="{Binding IsUser}" Value="True">
+                                                            <Setter Property="HorizontalAlignment" Value="Right" />
+                                                            <Setter Property="Background" Value="{DynamicResource AccentFillColorDefaultBrush}" />
+                                                            <Setter Property="BorderThickness" Value="0" />
+                                                            <Setter Property="TextElement.Foreground" Value="{DynamicResource TextOnAccentFillColorPrimaryBrush}" />
+                                                        </DataTrigger>
+                                                        <DataTrigger Binding="{Binding IsError}" Value="True">
+                                                            <Setter Property="Background" Value="{DynamicResource SystemFillColorCriticalBackgroundBrush}" />
+                                                        </DataTrigger>
+                                                    </Style.Triggers>
+                                                </Style>
+                                            </Border.Style>
+
+                                            <StackPanel>
+                                                <TextBox Text="{Binding Text, Mode=OneWay}" Style="{StaticResource SelectableTextStyle}" />
+
+                                                <ItemsControl ItemsSource="{Binding Recommendations}" Margin="0,8,0,0"
+                                                              Visibility="{Binding HasRecommendations, Converter={StaticResource BoolToVisibilityConverter}}">
+                                                    <ItemsControl.ItemTemplate>
+                                                        <DataTemplate>
+                                                            <Border Background="{DynamicResource LayerFillColorDefaultBrush}"
+                                                                    BorderBrush="{DynamicResource CardStrokeColorDefaultBrush}" BorderThickness="1"
+                                                                    CornerRadius="6" Padding="8" Margin="0,0,0,6">
+                                                                <StackPanel>
+                                                                    <TextBlock TextWrapping="Wrap" FontWeight="SemiBold" DataContext="{Binding Product}">
+                                                                        <Hyperlink Style="{StaticResource ProductLinkStyle}"
+                                                                                   Command="{Binding DataContext.OpenLinkCommand, ElementName=Root}">
+                                                                            <Run Text="{Binding RawText, Mode=OneWay}" />
+                                                                        </Hyperlink>
+                                                                    </TextBlock>
+                                                                    <TextBlock Margin="0,4,0,0">
+                                                                        <Run Text="{Binding Product.Price, Mode=OneWay, StringFormat='${0:N0}'}"
+                                                                             Foreground="{DynamicResource AccentTextFillColorPrimaryBrush}" FontWeight="SemiBold" />
+                                                                        <Run Text="{Binding Qty, Mode=OneWay, StringFormat='  × {0}'}" />
+                                                                    </TextBlock>
+                                                                    <TextBlock Text="{Binding Reason}" TextWrapping="Wrap" FontSize="12" Opacity="0.75" Margin="0,4,0,0"
+                                                                               Visibility="{Binding Reason, Converter={StaticResource NullToVisibilityConverter}}" />
+
+                                                                    <ui:Button Content="加入菜單" Icon="{ui:SymbolIcon Add24}" HorizontalAlignment="Right" Margin="0,6,0,0"
+                                                                               Command="{Binding DataContext.AddToMenuCommand, ElementName=Root}"
+                                                                               CommandParameter="{Binding}"
+                                                                               Visibility="{Binding IsAdded, Converter={StaticResource InverseBoolToVisibilityConverter}}" />
+                                                                    <StackPanel Orientation="Horizontal" HorizontalAlignment="Right" Margin="0,6,0,0"
+                                                                                Visibility="{Binding IsAdded, Converter={StaticResource BoolToVisibilityConverter}}">
+                                                                        <ui:SymbolIcon Symbol="CheckmarkCircle24" Foreground="{DynamicResource SystemFillColorSuccessBrush}" />
+                                                                        <TextBlock Text="已加入" Margin="4,0,0,0" VerticalAlignment="Center" />
+                                                                    </StackPanel>
+                                                                </StackPanel>
+                                                            </Border>
+                                                        </DataTemplate>
+                                                    </ItemsControl.ItemTemplate>
+                                                </ItemsControl>
+
+                                                <!-- 兩項以上推薦：顯示合計，可一次全部加入目標菜單，或另建新菜單 -->
+                                                <StackPanel Margin="0,2,0,0"
+                                                            Visibility="{Binding HasMultipleRecommendations, Converter={StaticResource BoolToVisibilityConverter}}">
+                                                    <TextBlock HorizontalAlignment="Right" Margin="0,0,0,6">
+                                                        <Run Text="合計" />
+                                                        <Run Text="{Binding TotalPrice, Mode=OneWay, StringFormat='${0:N0}'}" FontWeight="SemiBold"
+                                                             Foreground="{DynamicResource AccentTextFillColorPrimaryBrush}" />
+                                                    </TextBlock>
+                                                    <ui:Button Content="全部加入目標菜單" Icon="{ui:SymbolIcon Cart24}" Appearance="Primary"
+                                                               HorizontalAlignment="Stretch"
+                                                               CommandParameter="{Binding}"
+                                                               Command="{Binding DataContext.AddAllToMenuCommand, ElementName=Root}" />
+                                                    <ui:Button Content="建立新菜單並全部加入" Icon="{ui:SymbolIcon DocumentAdd24}" Margin="0,6,0,0"
+                                                               HorizontalAlignment="Stretch"
+                                                               Command="{Binding DataContext.CreateMenuFromRecommendationsCommand, ElementName=Root}"
+                                                               CommandParameter="{Binding}" />
+                                                </StackPanel>
+                                            </StackPanel>
+                                        </Border>
+
+                                        <!-- 複製按鈕：跟對話框同一側對齊；複製後短暫顯示打勾 -->
+                                        <ui:Button Appearance="Transparent" Padding="6,4" Margin="0,2,0,0" ToolTip="複製"
+                                                   AutomationProperties.Name="複製"
+                                                   Command="{Binding DataContext.CopyMessageCommand, ElementName=Root}"
+                                                   CommandParameter="{Binding}">
+                                            <ui:Button.Style>
+                                                <Style TargetType="ui:Button" BasedOn="{StaticResource {x:Type ui:Button}}">
+                                                    <Setter Property="HorizontalAlignment" Value="Left" />
+                                                    <Style.Triggers>
+                                                        <DataTrigger Binding="{Binding IsUser}" Value="True">
+                                                            <Setter Property="HorizontalAlignment" Value="Right" />
+                                                        </DataTrigger>
+                                                    </Style.Triggers>
+                                                </Style>
+                                            </ui:Button.Style>
+                                            <Grid>
+                                                <ui:SymbolIcon Symbol="Copy24" FontSize="14" Opacity="0.7"
+                                                               Visibility="{Binding IsCopied, Converter={StaticResource InverseBoolToVisibilityConverter}}" />
+                                                <ui:SymbolIcon Symbol="Checkmark24" FontSize="14"
+                                                               Foreground="{DynamicResource SystemFillColorSuccessBrush}"
+                                                               Visibility="{Binding IsCopied, Converter={StaticResource BoolToVisibilityConverter}}" />
+                                            </Grid>
+                                        </ui:Button>
+                                    </StackPanel>
+                                </DataTemplate>
+                            </ItemsControl.ItemTemplate>
+                        </ItemsControl>
+
+                        <StackPanel Orientation="Horizontal" Margin="4,0,0,8"
+                                    Visibility="{Binding IsSending, Converter={StaticResource BoolToVisibilityConverter}}">
+                            <ui:ProgressRing IsIndeterminate="True" Width="16" Height="16" />
+                            <TextBlock Text="思考中..." Opacity="0.7" Margin="8,0,0,0" VerticalAlignment="Center" />
+                        </StackPanel>
+                    </StackPanel>
+                </ScrollViewer>
+            </Grid>
+
+            <!-- 輸入區 -->
+            <Grid Grid.Row="3" Margin="0,8,0,0">
+                <Grid.ColumnDefinitions>
+                    <ColumnDefinition Width="*" />
+                    <ColumnDefinition Width="Auto" />
+                </Grid.ColumnDefinitions>
+                <ui:TextBox Text="{Binding InputText, UpdateSourceTrigger=PropertyChanged}"
+                            IsEnabled="{Binding HasApiKey}"
+                            AcceptsReturn="True" TextWrapping="Wrap" MaxHeight="120" VerticalScrollBarVisibility="Auto"
+                            PreviewKeyDown="InputTextBox_PreviewKeyDown">
+                    <ui:TextBox.Style>
+                        <Style TargetType="ui:TextBox" BasedOn="{StaticResource {x:Type ui:TextBox}}">
+                            <Setter Property="PlaceholderText" Value="輸入訊息，Enter 送出，Shift+Enter 換行" />
+                            <Style.Triggers>
+                                <DataTrigger Binding="{Binding HasApiKey}" Value="False">
+                                    <Setter Property="PlaceholderText" Value="請先到「設定」頁提供 Gemini API Key" />
+                                </DataTrigger>
+                            </Style.Triggers>
+                        </Style>
+                    </ui:TextBox.Style>
+                </ui:TextBox>
+                <ui:Button Grid.Column="1" Icon="{ui:SymbolIcon Send24}" Appearance="Primary" Margin="8,0,0,0"
+                           VerticalAlignment="Bottom" ToolTip="送出" Command="{Binding SendCommand}" />
+            </Grid>
+        </Grid>
+    </Border>
+</UserControl>

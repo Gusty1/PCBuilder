@@ -1,14 +1,18 @@
-﻿<Application x:Class="PCBuilder.App"
+<Application x:Class="PCBuilder.App"
              xmlns="http://schemas.microsoft.com/winfx/2006/xaml/presentation"
              xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
              xmlns:local="clr-namespace:PCBuilder"
              xmlns:ui="http://schemas.lepo.co/wpfui/2022/xaml"
-             xmlns:conv="clr-namespace:PCBuilder.Converters">
+             xmlns:conv="clr-namespace:PCBuilder.Converters"
+             ShutdownMode="OnMainWindowClose">
+    <!-- OnMainWindowClose：關閉主視窗就結束程式，App 內瀏覽視窗開著也會一起關閉（預設要等所有視窗都關閉） -->
     <Application.Resources>
         <ResourceDictionary>
             <ResourceDictionary.MergedDictionaries>
                 <ui:ThemesDictionary Theme="Light" />
                 <ui:ControlsDictionary />
+                <!-- App icon 圖形（AppIconImage），標題列使用 -->
+                <ResourceDictionary Source="Assets/AppIcon.xaml" />
             </ResourceDictionary.MergedDictionaries>
             <BooleanToVisibilityConverter x:Key="BoolToVisibilityConverter" />
             <conv:CountToVisibilityConverter x:Key="CountToVisibilityConverter" />
@@ -16,6 +20,75 @@
             <conv:ZeroToCollapsedConverter x:Key="ZeroToCollapsedConverter" />
             <conv:InverseBoolToVisibilityConverter x:Key="InverseBoolToVisibilityConverter" />
             <conv:InverseBoolConverter x:Key="InverseBoolConverter" />
+            <conv:MarkersToHotVisibilityConverter x:Key="MarkersToHotVisibilityConverter" />
+            <conv:NotNullToBoolConverter x:Key="NotNullToBoolConverter" />
+            <conv:MenuColorConverter x:Key="MenuColorConverter" />
+            <conv:ProductImageConverter x:Key="ProductImageConverter" />
+
+            <!-- 商品沒有圖片或圖片載入失敗時的替代圖 -->
+            <BitmapImage x:Key="NoImageBitmap" UriSource="pack://application:,,,/Assets/no-image.jpg" />
+
+            <!-- 外觀跟 WPF-UI 的 Expander 一樣（標題列＋內容區、同樣的底色與邊框），但沒有收合功能和箭頭，內容固定顯示 -->
+            <Style x:Key="StaticExpanderStyle" TargetType="Expander">
+                <Setter Property="Background" Value="{DynamicResource ExpanderHeaderBackground}" />
+                <Setter Property="Foreground" Value="{DynamicResource ExpanderHeaderForeground}" />
+                <Setter Property="BorderBrush" Value="{DynamicResource ExpanderHeaderBorderBrush}" />
+                <Setter Property="Padding" Value="11" />
+                <Setter Property="HorizontalContentAlignment" Value="Stretch" />
+                <Setter Property="Template">
+                    <Setter.Value>
+                        <ControlTemplate TargetType="Expander">
+                            <Grid>
+                                <Grid.RowDefinitions>
+                                    <RowDefinition Height="Auto" />
+                                    <RowDefinition Height="*" />
+                                </Grid.RowDefinitions>
+                                <Border Grid.Row="0" Padding="{TemplateBinding Padding}" CornerRadius="4,4,0,0" BorderThickness="1"
+                                        Background="{TemplateBinding Background}" BorderBrush="{TemplateBinding BorderBrush}">
+                                    <ContentPresenter ContentSource="Header" VerticalAlignment="Center"
+                                                      TextElement.Foreground="{TemplateBinding Foreground}" />
+                                </Border>
+                                <Border Grid.Row="1" CornerRadius="0,0,4,4" BorderThickness="1,0,1,1"
+                                        Background="{DynamicResource ExpanderContentBackground}" BorderBrush="{TemplateBinding BorderBrush}">
+                                    <ContentPresenter Margin="{TemplateBinding Padding}"
+                                                      HorizontalAlignment="{TemplateBinding HorizontalContentAlignment}" />
+                                </Border>
+                            </Grid>
+                        </ControlTemplate>
+                    </Setter.Value>
+                </Setter>
+            </Style>
+
+            <!-- 菜單下拉選單（首頁底部、AI 助手共用）：已生成估價單的菜單也列出來，但停用（灰色、不能選），名稱後面註明原因 -->
+            <DataTemplate x:Key="MenuOptionTemplate">
+                <StackPanel Orientation="Horizontal">
+                    <TextBlock Text="{Binding Name}" />
+                    <TextBlock Text="已生成估價單" FontSize="11" Opacity="0.8" Margin="8,0,0,0" VerticalAlignment="Center"
+                               Visibility="{Binding IsSend, Converter={StaticResource BoolToVisibilityConverter}}" />
+                </StackPanel>
+            </DataTemplate>
+            <Style x:Key="MenuOptionContainerStyle" TargetType="ComboBoxItem" BasedOn="{StaticResource {x:Type ComboBoxItem}}">
+                <Setter Property="IsEnabled" Value="{Binding IsSend, Converter={StaticResource InverseBoolConverter}}" />
+            </Style>
+
+            <!-- 商品名稱連結：有 ProductUrl 才可點擊並顯示強調色，沒有網址時看起來就是一般文字 -->
+            <Style x:Key="ProductLinkStyle" TargetType="Hyperlink">
+                <Setter Property="Foreground" Value="{DynamicResource AccentTextFillColorPrimaryBrush}" />
+                <Setter Property="TextDecorations" Value="{x:Null}" />
+                <Setter Property="Cursor" Value="Hand" />
+                <Setter Property="CommandParameter" Value="{Binding ProductUrl}" />
+                <Style.Triggers>
+                    <Trigger Property="IsMouseOver" Value="True">
+                        <Setter Property="TextDecorations" Value="Underline" />
+                    </Trigger>
+                    <DataTrigger Binding="{Binding ProductUrl}" Value="{x:Null}">
+                        <Setter Property="Foreground" Value="{DynamicResource TextFillColorPrimaryBrush}" />
+                        <Setter Property="TextDecorations" Value="{x:Null}" />
+                        <Setter Property="Cursor" Value="Arrow" />
+                        <Setter Property="IsEnabled" Value="False" />
+                    </DataTrigger>
+                </Style.Triggers>
+            </Style>
         </ResourceDictionary>
     </Application.Resources>
 </Application>

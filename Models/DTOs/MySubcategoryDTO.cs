@@ -1,5 +1,3 @@
-﻿
-
 namespace PCBuilder.Models.DTOs
 {
     /// <summary>
@@ -10,11 +8,10 @@ namespace PCBuilder.Models.DTOs
         public required int CategoryId { get; set; }
 
         public required string SubcategoryName { get; set; }
-        
-        //記錄我的子目錄產品數量
-        public int Qty { get; set; }
 
-        //有數量的產品
         public List<MyProductDTO>? Products { get; set; } = [];
+
+        // 子分類 Tab 上的徽章：該分類共有幾樣商品
+        public int ProductCount => Products?.Count ?? 0;
     }
 }

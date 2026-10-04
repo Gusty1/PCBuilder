@@ -1,11 +1,11 @@
-﻿
+using CommunityToolkit.Mvvm.ComponentModel;
 
 namespace PCBuilder.Models.DTOs
 {
     /// <summary>
     /// 首頁我的商品資料
     /// </summary>
-    public class MyProductDTO
+    public partial class MyProductDTO : ObservableObject
     {
         public required string Index { get; set; }
 
@@ -27,8 +27,14 @@ namespace PCBuilder.Models.DTOs
 
         public List<string>? Details { get; set; } = [];
 
+        public string? DetailsText => Details is { Count: > 0 } ? string.Join("　/　", Details) : null;
+
         //記錄我目前的商品數量
-        public int Qty { get; set; }
+        [ObservableProperty]
+        [NotifyPropertyChangedFor(nameof(IsInMenu))]
+        private int qty;
+
+        public bool IsInMenu => Qty > 0;
 
         /// <summary>是否為熱銷商品（Markers 含 "hot"，不分大小寫）。</summary>
         public bool IsHot => Markers?.Any(m => m.Contains("hot", StringComparison.OrdinalIgnoreCase)) ?? false;

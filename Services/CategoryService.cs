@@ -1,4 +1,4 @@
-﻿using CommunityToolkit.Mvvm.ComponentModel;
+using CommunityToolkit.Mvvm.ComponentModel;
 using Microsoft.EntityFrameworkCore;
 using PCBuilder.Data;
 using PCBuilder.Models;
@@ -72,8 +72,6 @@ namespace PCBuilder.Services
                                 Qty = findProduct == null ? 0 : findProduct.Qty
                             });
                         }
-                        var subcategoryQty = menuCategory != null ? menuCategory.MenuProducts.Where(x => x.SubcategoryName == subcategory.SubcategoryName)
-                            .Sum(k => k.Qty) : 0;
                         var findSubcategory = mySubcategoryDTOList.FirstOrDefault(item => item.SubcategoryName == subcategory.SubcategoryName);
                         if (findSubcategory == null)
                         {
@@ -82,7 +80,6 @@ namespace PCBuilder.Services
                                 CategoryId = subcategory.CategoryId,
                                 SubcategoryName = subcategory.SubcategoryName,
                                 Products = myProductDTOList,
-                                Qty = subcategoryQty
                             });
                         }
                     }

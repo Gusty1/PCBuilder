@@ -1,4 +1,4 @@
-﻿using System.ComponentModel.DataAnnotations;
+using System.ComponentModel.DataAnnotations;
 
 namespace PCBuilder.Models
 {
@@ -8,11 +8,11 @@ namespace PCBuilder.Models
     public class Category
     {
         [Key]
-        public required int CategoryId { get; set; } 
+        public required int CategoryId { get; set; }
 
         public required string CategoryName { get; set; }
 
-        public required string Summary { get; set; } 
+        public required string Summary { get; set; }
 
         public List<Subcategory>? Subcategories { get; set; } = [];
     }

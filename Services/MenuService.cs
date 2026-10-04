@@ -1,4 +1,4 @@
-﻿using CommunityToolkit.Mvvm.ComponentModel;
+using CommunityToolkit.Mvvm.ComponentModel;
 using Microsoft.EntityFrameworkCore;
 using PCBuilder.Data;
 using PCBuilder.Models;
@@ -11,9 +11,28 @@ namespace PCBuilder.Services
     /// 首頁我的菜單的商品相關服務的實作
     /// </summary>
     /// <seealso cref="CommunityToolkit.Mvvm.ComponentModel.ObservableObject" />
-    public class MenuService(AppDbContext dbContext, NotificationService notificationService, CoolPcService coolPcService) : ObservableObject
+    public class MenuService(AppDbContext dbContext, NotificationService notificationService, CoolPcService coolPcService,
+        AppPreferences preferences) : ObservableObject
     {
         private static readonly string CoolPC = "https://www.coolpc.com.tw/tmp/";
+        private const string LastMenuIdKey = "LastMenuId";
+
+        /// <summary>
+        /// 首頁底部菜單列與 AI 助手共用的「當前菜單」Id（-1 代表沒有），存在偏好設定，重開 App 會還原。
+        /// 任何一邊切換都呼叫 SetCurrentMenu，另一邊監聽 CurrentMenuChanged 跟著切換。
+        /// </summary>
+        public int CurrentMenuId => preferences.GetInt(LastMenuIdKey) ?? -1;
+
+        public event Action? CurrentMenuChanged;
+
+        public void SetCurrentMenu(int? id)
+        {
+            var value = id ?? -1;
+            if (CurrentMenuId == value) return;
+
+            preferences.SetInt(LastMenuIdKey, value);
+            CurrentMenuChanged?.Invoke();
+        }
 
         private bool _isLoading = false;
         public bool IsLoading
@@ -218,6 +237,8 @@ namespace PCBuilder.Services
 
                 dbContext.MenuCategory.Remove(findMenuCategory);
                 var result = await dbContext.SaveChangesAsync();
+                // 重新載入並觸發 OnStateChanged，常駐的 AI 側邊欄、首頁菜單下拉才不會殘留已刪除的菜單
+                await GetMenuCategoriesAsync();
                 if (result > 0)
                 {
                     notificationService.ShowSuccess($"刪除 {findMenuCategory.Name} 成功");
@@ -234,45 +255,29 @@ namespace PCBuilder.Services
             }
         }
 
-        public async Task UpdateMenuCategoryAsync(MyMenuCategoryDTO myMenuCategoryDTO, List<MenuProduct> menuProducts)
+        /// <summary>
+        /// 修改菜單名稱。名稱沒變就不存檔；空白名稱不接受，但仍重新載入讓畫面還原成原本的名稱。
+        /// </summary>
+        public async Task RenameMenuCategoryAsync(int id, string? name)
         {
             try
             {
-                if (myMenuCategoryDTO == null) return;
+                var menu = await dbContext.MenuCategory.FirstOrDefaultAsync(x => x.Id == id);
+                var newName = name?.Trim();
+                if (menu is null || menu.Name == newName) return;
 
-                var findMenuCategory = await dbContext.MenuCategory.FirstOrDefaultAsync(x => x.Id == myMenuCategoryDTO.Id);
-                var findMenuProducts = await dbContext.MenuProduct.Where(x => x.MenuCategoryId == myMenuCategoryDTO.Id).ToListAsync();
-                if (findMenuCategory != null)
+                if (!string.IsNullOrEmpty(newName))
                 {
-                    findMenuCategory.Name = myMenuCategoryDTO.Name;
-                    findMenuCategory.ReviseDate = DateTime.Now;
-                    foreach (var (key, value) in myMenuCategoryDTO.MyMenuProducts)
-                    {
-                        foreach (var editProduct in value)
-                        {
-                            if (editProduct.Qty <= 0) continue;
-                            var fineMenuProduct = findMenuProducts.FirstOrDefault(x => x.ProductName == editProduct.ProductName
-                            && x.CategoryName == key);
-                            if (fineMenuProduct != null)
-                            {
-                                fineMenuProduct.Qty = editProduct.Qty;
-                            }
-                        }
-                    }
+                    menu.Name = newName;
+                    menu.ReviseDate = DateTime.Now;
+                    await dbContext.SaveChangesAsync();
                 }
-                if (menuProducts.Any())
-                {
-                    var productIds = menuProducts.Select(x => x.Id).ToList();
-                    var deleteList = findMenuProducts.Where(x => productIds.Contains(x.Id)).ToList();
-                    dbContext.MenuProduct.RemoveRange(deleteList);
-                }
-
-                await dbContext.SaveChangesAsync();
+                await GetMenuCategoriesAsync();
             }
             catch (Exception ex)
             {
-                Debug.WriteLine($"更新菜單資料時發生錯誤: {ex.Message}");
-                notificationService.ShowError($"更新菜單失敗");
+                Debug.WriteLine($"修改菜單名稱時發生錯誤: {ex.Message}");
+                notificationService.ShowError("修改菜單名稱失敗");
             }
         }
 
@@ -321,19 +326,128 @@ namespace PCBuilder.Services
             }
         }
 
+        public async Task<List<StagedProduct>> GetStagedProductsAsync()
+        {
+            try
+            {
+                return await dbContext.StagedProduct.OrderBy(x => x.Id).ToListAsync();
+            }
+            catch (Exception ex)
+            {
+                Debug.WriteLine($"查詢零件暫存區時發生錯誤: {ex.Message}");
+                return [];
+            }
+        }
+
+        /// <summary>把菜單裡的商品整筆（含數量）移到零件暫存區；已生成估價單的菜單不能修改。</summary>
+        public async Task MoveToStagingAsync(int menuProductId)
+        {
+            try
+            {
+                var product = await dbContext.MenuProduct.FirstOrDefaultAsync(x => x.Id == menuProductId);
+                if (product == null) return;
+                var menuCategory = await dbContext.MenuCategory.FirstOrDefaultAsync(x => x.Id == product.MenuCategoryId);
+                if (menuCategory == null || menuCategory.IsSend) return;
+
+                dbContext.StagedProduct.Add(new StagedProduct
+                {
+                    CategoryId = product.CategoryId,
+                    CategoryName = product.CategoryName,
+                    SubcategoryName = product.SubcategoryName,
+                    ProductName = product.ProductName,
+                    ProductFullText = product.ProductFullText,
+                    ProductUrl = product.ProductUrl,
+                    ProductPrice = product.ProductPrice,
+                    Qty = product.Qty,
+                });
+                dbContext.MenuProduct.Remove(product);
+                menuCategory.ReviseDate = DateTime.Now;
+                // 同一次 SaveChanges：移入暫存區與從菜單移除一起成功或一起失敗，商品不會不見或變成兩份
+                await dbContext.SaveChangesAsync();
+                await GetMenuCategoriesAsync();
+            }
+            catch (Exception ex)
+            {
+                Debug.WriteLine($"移到零件暫存區時發生錯誤: {ex.Message}");
+                notificationService.ShowError("移到零件暫存區失敗");
+            }
+        }
+
+        /// <summary>把暫存區的商品整筆放回菜單；菜單裡已有同一個商品時數量相加。已生成估價單的菜單不能放入。</summary>
+        public async Task MoveToMenuAsync(int stagedProductId, int menuId)
+        {
+            try
+            {
+                var staged = await dbContext.StagedProduct.FirstOrDefaultAsync(x => x.Id == stagedProductId);
+                var menuCategory = await dbContext.MenuCategory.FirstOrDefaultAsync(x => x.Id == menuId);
+                if (staged == null || menuCategory == null || menuCategory.IsSend) return;
+
+                var existing = await dbContext.MenuProduct.FirstOrDefaultAsync(x =>
+                    x.MenuCategoryId == menuId && x.ProductName == staged.ProductName);
+                if (existing != null)
+                {
+                    existing.Qty += staged.Qty;
+                }
+                else
+                {
+                    dbContext.MenuProduct.Add(new MenuProduct
+                    {
+                        MenuCategoryId = menuId,
+                        CategoryId = staged.CategoryId,
+                        CategoryName = staged.CategoryName,
+                        SubcategoryName = staged.SubcategoryName,
+                        ProductName = staged.ProductName,
+                        ProductFullText = staged.ProductFullText,
+                        ProductUrl = staged.ProductUrl,
+                        ProductPrice = staged.ProductPrice,
+                        Qty = staged.Qty,
+                    });
+                }
+                dbContext.StagedProduct.Remove(staged);
+                menuCategory.ReviseDate = DateTime.Now;
+                await dbContext.SaveChangesAsync();
+                await GetMenuCategoriesAsync();
+            }
+            catch (Exception ex)
+            {
+                Debug.WriteLine($"放回菜單時發生錯誤: {ex.Message}");
+                notificationService.ShowError("放回菜單失敗");
+            }
+        }
+
+        public async Task DeleteStagedProductAsync(int stagedProductId)
+        {
+            try
+            {
+                var staged = await dbContext.StagedProduct.FirstOrDefaultAsync(x => x.Id == stagedProductId);
+                if (staged == null) return;
+
+                dbContext.StagedProduct.Remove(staged);
+                await dbContext.SaveChangesAsync();
+                // 菜單沒變，但要觸發 OnStateChanged 讓菜單管理頁重新載入暫存區
+                await GetMenuCategoriesAsync();
+            }
+            catch (Exception ex)
+            {
+                Debug.WriteLine($"刪除暫存區商品時發生錯誤: {ex.Message}");
+                notificationService.ShowError("刪除暫存區商品失敗");
+            }
+        }
+
         public async Task ClearAllDataAsync()
         {
             try
             {
-                // 刪除所有 MenuProduct（子項），再刪除 MenuCategory（父項）
+                // 刪除所有 MenuProduct（子項），再刪除 MenuCategory（父項）；零件暫存區也一起清空
                 dbContext.MenuProduct.RemoveRange(dbContext.MenuProduct);
                 dbContext.MenuCategory.RemoveRange(dbContext.MenuCategory);
+                dbContext.StagedProduct.RemoveRange(dbContext.StagedProduct);
                 await dbContext.SaveChangesAsync();
 
                 // 重新載入（結果為空列表），並觸發 OnStateChanged 通知 UI
                 await GetMenuCategoriesAsync();
 
-                notificationService.ShowSuccess("所有菜單與偏好設定已清除");
+                notificationService.ShowSuccess("所有菜單、零件暫存區與偏好設定已清除");
             }
             catch (Exception ex)
             {
@@ -383,6 +497,8 @@ namespace PCBuilder.Services
                 findMenu.ReviseDate = DateTime.Now;
 
                 await dbContext.SaveChangesAsync();
+                // 已送出的菜單要從首頁與 AI 側邊欄的可選菜單中移除
+                await GetMenuCategoriesAsync();
             }
             catch (Exception ex)
             {

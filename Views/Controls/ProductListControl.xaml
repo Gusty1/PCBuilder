@@ -14,39 +14,171 @@
             <RowDefinition Height="*" />
         </Grid.RowDefinitions>
 
-        <ui:TextBox Grid.Row="0" x:Name="SearchBox" PlaceholderText="搜尋商品"
-                    Icon="{ui:SymbolIcon Search24}" Margin="0,0,0,8" MaxWidth="300" HorizontalAlignment="Left"
-                    TextChanged="SearchBox_TextChanged" />
+        <!-- 搜尋框用 * 欄並限制最寬 420：開 AI 側邊欄空間不夠時先縮搜尋框，價格區間固定接在右邊 -->
+        <Grid Grid.Row="0" Margin="0,0,0,8">
+            <Grid.ColumnDefinitions>
+                <ColumnDefinition Width="*" MinWidth="160" MaxWidth="420" />
+                <ColumnDefinition Width="Auto" />
+            </Grid.ColumnDefinitions>
 
-        <ListView Grid.Row="1" x:Name="ProductListView" ItemsSource="{Binding Products, ElementName=Root}"
-                  BorderThickness="0" ScrollViewer.HorizontalScrollBarVisibility="Disabled">
-            <ListView.View>
-                <GridView>
-                    <GridViewColumn Header="商品名稱" Width="480">
-                        <GridViewColumn.CellTemplate>
-                            <DataTemplate>
-                                <StackPanel Orientation="Vertical" Margin="0,6">
-                                    <StackPanel Orientation="Horizontal">
-                                        <TextBlock Text="{Binding RawText}" TextWrapping="Wrap" MaxWidth="420" />
-                                        <ui:SymbolIcon Symbol="Fire24" Margin="6,0,0,0"
-                                                       Visibility="{Binding IsHot, Converter={StaticResource BoolToVisibilityConverter}}" />
-                                    </StackPanel>
-                                    <TextBlock Text="{Binding Group}" Opacity="0.6" FontSize="12"
-                                               Visibility="{Binding Group, Converter={StaticResource NullToVisibilityConverter}}" />
-                                </StackPanel>
-                            </DataTemplate>
-                        </GridViewColumn.CellTemplate>
-                    </GridViewColumn>
-                    <GridViewColumn Header="價格" DisplayMemberBinding="{Binding Price}" Width="100" />
-                    <GridViewColumn Header="數量" Width="100">
-                        <GridViewColumn.CellTemplate>
-                            <DataTemplate>
-                                <ui:NumberBox Value="{Binding Qty, Mode=TwoWay}" Width="80" Minimum="0" />
-                            </DataTemplate>
-                        </GridViewColumn.CellTemplate>
-                    </GridViewColumn>
-                </GridView>
-            </ListView.View>
-        </ListView>
+            <ui:TextBox x:Name="SearchBox" PlaceholderText="搜尋商品（名稱、說明、規格）" AutomationProperties.Name="搜尋商品"
+                        Icon="{ui:SymbolIcon Search24}"
+                        TextChanged="Filter_TextChanged" />
+
+            <!-- 價格區間：可只填一邊；用 TextChanged 即時篩選（NumberBox 的 Value 要按 Enter 或離開輸入框才會更新） -->
+            <StackPanel Grid.Column="1" Orientation="Horizontal" Margin="12,0,0,0" VerticalAlignment="Center">
+                <TextBlock Text="價格" VerticalAlignment="Center" Opacity="0.7" Margin="0,0,8,0" />
+                <ui:NumberBox x:Name="MinPriceBox" PlaceholderText="最低價" AutomationProperties.Name="最低價" Width="100" Minimum="0"
+                              SpinButtonPlacementMode="Hidden" ClearButtonEnabled="False"
+                              TextChanged="Filter_TextChanged" />
+                <TextBlock Text="～" VerticalAlignment="Center" Margin="6,0" />
+                <ui:NumberBox x:Name="MaxPriceBox" PlaceholderText="最高價" AutomationProperties.Name="最高價" Width="100" Minimum="0"
+                              SpinButtonPlacementMode="Hidden" ClearButtonEnabled="False"
+                              TextChanged="Filter_TextChanged" />
+                <ui:Button Icon="{ui:SymbolIcon ArrowReset24}" ToolTip="重設價格區間" Appearance="Transparent"
+                           Margin="4,0,0,0" Click="ClearPriceRange_Click" />
+            </StackPanel>
+        </Grid>
+
+        <ui:DataGrid Grid.Row="1" x:Name="ProductListView" ItemsSource="{Binding Products, ElementName=Root}"
+                     AutoGenerateColumns="False" IsReadOnly="False" CanUserAddRows="False" CanUserDeleteRows="False"
+                     CanUserReorderColumns="False" CanUserResizeRows="False" HeadersVisibility="Column"
+                     GridLinesVisibility="Horizontal" AlternatingRowBackground="{DynamicResource ControlFillColorDefaultBrush}"
+                     SelectionUnit="Cell" Sorting="ProductListView_Sorting"
+                     MinRowHeight="88" VerticalScrollBarVisibility="Auto" HorizontalScrollBarVisibility="Disabled">
+            <ui:DataGrid.Resources>
+                <Style TargetType="DataGridCell" BasedOn="{StaticResource {x:Type DataGridCell}}">
+                    <Style.Triggers>
+                        <Trigger Property="IsSelected" Value="True">
+                            <Setter Property="Background" Value="Transparent" />
+                            <Setter Property="BorderBrush" Value="Transparent" />
+                            <Setter Property="Foreground" Value="{DynamicResource TextFillColorPrimaryBrush}" />
+                        </Trigger>
+                        <!-- 已加入當前菜單的商品整列標綠，放在 IsSelected 之後才不會被選取狀態蓋掉 -->
+                        <DataTrigger Binding="{Binding IsInMenu}" Value="True">
+                            <Setter Property="Background" Value="{DynamicResource SystemFillColorSuccessBackgroundBrush}" />
+                        </DataTrigger>
+                    </Style.Triggers>
+                </Style>
+                <!-- SelectionUnit="Cell"：WPF-UI 的列範本選取時會顯示左側色條與底色（範本觸發器，樣式蓋不掉），
+                     改成以儲存格為單位選取，整列就不會進入選取狀態 -->
+                <Style TargetType="DataGridRow" BasedOn="{StaticResource {x:Type DataGridRow}}">
+                    <Style.Triggers>
+                        <!-- 列也要上色，否則儲存格之間的間隙會露出白線 -->
+                        <DataTrigger Binding="{Binding IsInMenu}" Value="True">
+                            <Setter Property="Background" Value="{DynamicResource SystemFillColorSuccessBackgroundBrush}" />
+                        </DataTrigger>
+                    </Style.Triggers>
+                </Style>
+            </ui:DataGrid.Resources>
+            <ui:DataGrid.Columns>
+                <!-- 縮圖：沒有圖片的商品此欄自動收窄成 0，不佔用橫向空間 -->
+                <DataGridTemplateColumn Header="縮圖" Width="SizeToCells" MinWidth="0" CanUserResize="False">
+                    <DataGridTemplateColumn.CellTemplate>
+                        <DataTemplate>
+                            <!-- 沒有圖片連結由 ProductImageConverter 回傳 NO IMAGE（不經內建轉換器，不會擲例外），同網址共用同一張圖；
+                                 有連結但下載失敗由 Thumbnail_ImageFailed 換成 NO IMAGE -->
+                            <Grid Margin="4">
+                                <Image x:Name="Thumbnail" Height="80" Width="80" Stretch="Uniform"
+                                       Source="{Binding ImgUrl, Converter={StaticResource ProductImageConverter}}"
+                                       ImageFailed="Thumbnail_ImageFailed"
+                                       MouseEnter="ThumbnailImage_MouseEnter" MouseLeave="ThumbnailImage_MouseLeave" />
+                                <Popup x:Name="PreviewPopup" PlacementTarget="{Binding ElementName=Thumbnail}"
+                                       Placement="Right" AllowsTransparency="True" PopupAnimation="Fade" IsOpen="False">
+                                    <Border Background="{DynamicResource ApplicationBackgroundBrush}" BorderBrush="Gray"
+                                            BorderThickness="1" CornerRadius="4" Padding="4">
+                                        <Image Source="{Binding ImgUrl, Converter={StaticResource ProductImageConverter}}"
+                                               Width="320" Stretch="Uniform" />
+                                    </Border>
+                                </Popup>
+                            </Grid>
+                        </DataTemplate>
+                    </DataGridTemplateColumn.CellTemplate>
+                </DataGridTemplateColumn>
+
+                <!-- 名稱、說明的 MinWidth 刻意壓低：開 AI 側邊欄時表格只剩約 570px，空間不夠時由這兩欄縮窄、換行，
+                     價格與數量欄永遠完整顯示（MinWidth 總和超過可用寬度時，DataGrid 會直接切掉最右邊的欄位） -->
+                <DataGridTemplateColumn Header="商品名稱" Width="3*" MinWidth="140">
+                    <DataGridTemplateColumn.CellTemplate>
+                        <DataTemplate>
+                            <Grid VerticalAlignment="Center" ToolTip="{Binding FullText}">
+                                <Grid.ColumnDefinitions>
+                                    <ColumnDefinition Width="Auto" />
+                                    <ColumnDefinition Width="*" />
+                                </Grid.ColumnDefinitions>
+                                <ui:SymbolIcon Grid.Column="0" Symbol="Fire24" Filled="True" Margin="0,0,6,0" Foreground="OrangeRed"
+                                               VerticalAlignment="Center"
+                                               Visibility="{Binding Markers, Converter={StaticResource MarkersToHotVisibilityConverter}}" />
+                                <TextBlock Grid.Column="1" TextWrapping="Wrap" VerticalAlignment="Center">
+                                    <Hyperlink Style="{StaticResource ProductLinkStyle}"
+                                               Command="{Binding DataContext.OpenLinkCommand, RelativeSource={RelativeSource AncestorType=Page}}">
+                                        <Run Text="{Binding RawText, Mode=OneWay}" />
+                                    </Hyperlink>
+                                </TextBlock>
+                            </Grid>
+                        </DataTemplate>
+                    </DataGridTemplateColumn.CellTemplate>
+                </DataGridTemplateColumn>
+
+                <DataGridTemplateColumn Header="說明" Width="2*" MinWidth="80">
+                    <DataGridTemplateColumn.CellTemplate>
+                        <DataTemplate>
+                            <StackPanel VerticalAlignment="Center" Margin="0,6,8,6">
+                                <TextBlock Text="{Binding Group}" TextWrapping="Wrap" Opacity="0.7" FontSize="12"
+                                           Visibility="{Binding Group, Converter={StaticResource NullToVisibilityConverter}}" />
+                                <TextBlock Text="{Binding DetailsText}" TextWrapping="Wrap" FontSize="12" Opacity="0.9"
+                                           Visibility="{Binding DetailsText, Converter={StaticResource NullToVisibilityConverter}}" />
+                            </StackPanel>
+                        </DataTemplate>
+                    </DataGridTemplateColumn.CellTemplate>
+                </DataGridTemplateColumn>
+
+                <!-- 只有這一欄能排序（其他欄是範本欄、沒有 SortMemberPath）。排序後 WPF-UI 的標題會顯示升冪 / 降冪箭頭，
+                     還沒排序時另外顯示上下箭頭，提示可以點 -->
+                <!-- 圖示放在 HeaderTemplate、Header 維持文字：Header 直接放元件時，螢幕閱讀器會唸出「System.Windows.Controls.StackPanel」 -->
+                <DataGridTextColumn Header="價格" Binding="{Binding Price, StringFormat=N0}" Width="90" IsReadOnly="True">
+                    <DataGridTextColumn.HeaderTemplate>
+                        <DataTemplate>
+                            <StackPanel Orientation="Horizontal" ToolTip="點擊依價格排序：低→高、高→低、原本順序">
+                                <TextBlock Text="{Binding}" VerticalAlignment="Center" />
+                                <!-- 用 Border 包住再設樣式：直接替 SymbolIcon 設 Style 會蓋掉 WPF-UI 給它的預設樣式 -->
+                                <Border Margin="4,0,0,0" VerticalAlignment="Center">
+                                    <Border.Style>
+                                        <Style TargetType="Border">
+                                            <Setter Property="Visibility" Value="Collapsed" />
+                                            <Style.Triggers>
+                                                <DataTrigger Binding="{Binding SortDirection, RelativeSource={RelativeSource AncestorType=DataGridColumnHeader}}"
+                                                             Value="{x:Null}">
+                                                    <Setter Property="Visibility" Value="Visible" />
+                                                </DataTrigger>
+                                            </Style.Triggers>
+                                        </Style>
+                                    </Border.Style>
+                                    <ui:SymbolIcon Symbol="ArrowSort24" Opacity="0.6" />
+                                </Border>
+                            </StackPanel>
+                        </DataTemplate>
+                    </DataGridTextColumn.HeaderTemplate>
+                    <DataGridTextColumn.ElementStyle>
+                        <Style TargetType="TextBlock">
+                            <Setter Property="HorizontalAlignment" Value="Right" />
+                            <Setter Property="VerticalAlignment" Value="Center" />
+                            <Setter Property="Margin" Value="0,0,8,0" />
+                        </Style>
+                    </DataGridTextColumn.ElementStyle>
+                </DataGridTextColumn>
+
+                <DataGridTemplateColumn Header="數量" Width="130">
+                    <DataGridTemplateColumn.CellTemplate>
+                        <DataTemplate>
+                            <ui:NumberBox Width="110" Minimum="0" Value="{Binding Qty}" VerticalAlignment="Center"
+                                          ClearButtonEnabled="False"
+                                          IsEnabled="{Binding CurrentMenuCategory, ElementName=Root, Converter={StaticResource NotNullToBoolConverter}}"
+                                          ValueChanged="QtyNumberBox_ValueChanged" />
+                        </DataTemplate>
+                    </DataGridTemplateColumn.CellTemplate>
+                </DataGridTemplateColumn>
+            </ui:DataGrid.Columns>
+        </ui:DataGrid>
     </Grid>
 </UserControl>

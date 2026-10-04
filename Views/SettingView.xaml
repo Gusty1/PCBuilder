@@ -1,4 +1,4 @@
-<UserControl x:Class="PCBuilder.Views.SettingView"
+<Page x:Class="PCBuilder.Views.SettingView"
              xmlns="http://schemas.microsoft.com/winfx/2006/xaml/presentation"
              xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
              xmlns:d="http://schemas.microsoft.com/expression/blend/2008"
@@ -7,67 +7,143 @@
              xmlns:vm="clr-namespace:PCBuilder.ViewModels"
              mc:Ignorable="d"
              d:DataContext="{d:DesignInstance Type=vm:SettingViewModel}"
-             d:DesignHeight="600" d:DesignWidth="500">
+             d:DesignHeight="600" d:DesignWidth="500"
+             ScrollViewer.CanContentScroll="False"
+             Foreground="{DynamicResource TextFillColorPrimaryBrush}">
+    <!-- 同 MenuView：CanContentScroll=False 讓頁面有固定高度，下面的 ScrollViewer 才捲得動；Foreground 讓文字跟著深淺主題 -->
 
-    <StackPanel Margin="16" MaxWidth="480" HorizontalAlignment="Left">
+    <ScrollViewer VerticalScrollBarVisibility="Auto">
+        <StackPanel Margin="24" MaxWidth="560" HorizontalAlignment="Left">
 
-        <TextBlock Text="關於" Opacity="0.6" Margin="0,0,0,8" />
-        <ui:CardControl Margin="0,0,0,16">
-            <ui:CardControl.Header>
+            <TextBlock Text="外觀" Opacity="0.6" Margin="0,0,0,8" />
+            <ui:CardControl Margin="0,0,0,20">
+                <ui:CardControl.Icon>
+                    <ui:SymbolIcon Symbol="DarkTheme24" />
+                </ui:CardControl.Icon>
+                <ui:CardControl.Header>
+                    <StackPanel>
+                        <TextBlock Text="深色模式" />
+                        <TextBlock Text="切換淺色 / 深色主題外觀" Opacity="0.6" FontSize="11" />
+                    </StackPanel>
+                </ui:CardControl.Header>
+                <ui:ToggleSwitch IsChecked="{Binding IsDarkMode, Mode=OneWay}"
+                                 Command="{Binding ToggleDarkModeCommand}" />
+            </ui:CardControl>
+
+            <TextBlock Text="AI 設定" Opacity="0.6" Margin="0,0,0,8" />
+            <ui:Card Margin="0,0,0,20">
                 <StackPanel>
-                    <Grid Margin="0,0,0,8">
+                    <StackPanel Orientation="Horizontal" Margin="0,0,0,12">
+                        <ui:SymbolIcon Symbol="BrainCircuit24" FontSize="20" />
+                        <StackPanel Margin="12,0,0,0">
+                            <TextBlock Text="AI 助手供應商" />
+                            <TextBlock Text="{Binding AiProviderDescription}" Opacity="0.6" FontSize="11" />
+                        </StackPanel>
+                    </StackPanel>
+
+                    <Grid Margin="0,0,0,4">
                         <Grid.ColumnDefinitions>
                             <ColumnDefinition Width="*" />
                             <ColumnDefinition Width="Auto" />
                         </Grid.ColumnDefinitions>
-                        <TextBlock Text="目前版本" Opacity="0.6" />
-                        <TextBlock Grid.Column="1" Text="{Binding AppVersion}" />
+                        <TextBlock Text="API Key" VerticalAlignment="Center" />
+                        <TextBlock Grid.Column="1" FontSize="12">
+                            <Hyperlink Command="{Binding OpenApiKeyPageCommand}"
+                                       Foreground="{DynamicResource AccentTextFillColorPrimaryBrush}">取得 Gemini API Key</Hyperlink>
+                        </TextBlock>
                     </Grid>
-                    <Grid Margin="0,0,0,8">
+                    <ui:PasswordBox Password="{Binding GeminiApiKey, Mode=TwoWay, UpdateSourceTrigger=PropertyChanged}"
+                                    PlaceholderText="貼上 Gemini API Key" RevealButtonEnabled="True" />
+                    <TextBlock Text="API Key 會以 Windows DPAPI 加密後存在本機，只有目前的 Windows 帳號能解開"
+                               Opacity="0.5" FontSize="11" Margin="0,4,0,0" TextWrapping="Wrap" />
+
+                    <Grid Margin="0,12,0,0">
                         <Grid.ColumnDefinitions>
                             <ColumnDefinition Width="*" />
                             <ColumnDefinition Width="Auto" />
+                            <ColumnDefinition Width="Auto" />
                         </Grid.ColumnDefinitions>
-                        <TextBlock Text="最新版本" Opacity="0.6" />
-                        <TextBlock Grid.Column="1" Text="{Binding LatestVersion}" />
+                        <TextBlock Text="{Binding AiStatus}" VerticalAlignment="Center" TextWrapping="Wrap">
+                            <TextBlock.Style>
+                                <Style TargetType="TextBlock">
+                                    <Setter Property="Opacity" Value="0.7" />
+                                    <Style.Triggers>
+                                        <DataTrigger Binding="{Binding IsAiStatusSuccess}" Value="True">
+                                            <Setter Property="Foreground" Value="{DynamicResource SystemFillColorSuccessBrush}" />
+                                            <Setter Property="Opacity" Value="1" />
+                                        </DataTrigger>
+                                        <DataTrigger Binding="{Binding IsAiStatusSuccess}" Value="False">
+                                            <Setter Property="Foreground" Value="{DynamicResource SystemFillColorCriticalBrush}" />
+                                            <Setter Property="Opacity" Value="1" />
+                                        </DataTrigger>
+                                    </Style.Triggers>
+                                </Style>
+                            </TextBlock.Style>
+                        </TextBlock>
+                        <ui:Button Grid.Column="1" Content="測試連線" Margin="8,0,0,0"
+                                   Command="{Binding TestApiKeyCommand}"
+                                   IsEnabled="{Binding IsTestingAi, Converter={StaticResource InverseBoolConverter}}" />
+                        <ui:Button Grid.Column="2" Content="儲存" Appearance="Primary" Margin="8,0,0,0"
+                                   Command="{Binding SaveApiKeyCommand}" />
                     </Grid>
-                    <ui:Button Content="檢查更新" HorizontalAlignment="Right"
-                               Command="{Binding CheckForUpdateCommand}"
-                               IsEnabled="{Binding IsCheckingForUpdate, Converter={StaticResource InverseBoolConverter}}" />
                 </StackPanel>
-            </ui:CardControl.Header>
-        </ui:CardControl>
+            </ui:Card>
 
-        <TextBlock Text="其他" Opacity="0.6" Margin="0,0,0,8" />
-        <ui:CardControl Margin="0,0,0,8">
-            <ui:CardControl.Header>
-                <Grid>
-                    <Grid.ColumnDefinitions>
-                        <ColumnDefinition Width="*" />
-                        <ColumnDefinition Width="Auto" />
-                    </Grid.ColumnDefinitions>
+            <TextBlock Text="關於" Opacity="0.6" Margin="0,0,0,8" />
+            <ui:CardControl Margin="0,0,0,20">
+                <ui:CardControl.Icon>
+                    <ui:SymbolIcon Symbol="Info24" />
+                </ui:CardControl.Icon>
+                <ui:CardControl.Header>
+                    <StackPanel>
+                        <Grid Margin="0,0,0,8">
+                            <Grid.ColumnDefinitions>
+                                <ColumnDefinition Width="*" />
+                                <ColumnDefinition Width="Auto" />
+                            </Grid.ColumnDefinitions>
+                            <TextBlock Text="目前版本" Opacity="0.6" />
+                            <TextBlock Grid.Column="1" Text="{Binding AppVersion}" />
+                        </Grid>
+                        <Grid Margin="0,0,0,8">
+                            <Grid.ColumnDefinitions>
+                                <ColumnDefinition Width="*" />
+                                <ColumnDefinition Width="Auto" />
+                            </Grid.ColumnDefinitions>
+                            <TextBlock Text="最新版本" Opacity="0.6" />
+                            <TextBlock Grid.Column="1" Text="{Binding LatestVersion}" />
+                        </Grid>
+                        <ui:Button Content="檢查更新" Icon="{ui:SymbolIcon ArrowSync24}" HorizontalAlignment="Right"
+                                   Command="{Binding CheckForUpdateCommand}"
+                                   IsEnabled="{Binding IsCheckingForUpdate, Converter={StaticResource InverseBoolConverter}}" />
+                    </StackPanel>
+                </ui:CardControl.Header>
+            </ui:CardControl>
+
+            <TextBlock Text="其他" Opacity="0.6" Margin="0,0,0,8" />
+            <ui:CardControl Margin="0,0,0,8">
+                <ui:CardControl.Icon>
+                    <ui:SymbolIcon Symbol="Mail24" />
+                </ui:CardControl.Icon>
+                <ui:CardControl.Header>
                     <TextBlock Text="意見回饋" VerticalAlignment="Center" />
-                    <ui:Button Grid.Column="1" Icon="{ui:SymbolIcon Mail24}" Command="{Binding OpenFeedbackEmailCommand}" />
-                </Grid>
-            </ui:CardControl.Header>
-        </ui:CardControl>
+                </ui:CardControl.Header>
+                <ui:Button Icon="{ui:SymbolIcon Mail24}" Command="{Binding OpenFeedbackEmailCommand}" />
+            </ui:CardControl>
 
-        <ui:CardControl>
-            <ui:CardControl.Header>
-                <Grid>
-                    <Grid.ColumnDefinitions>
-                        <ColumnDefinition Width="*" />
-                        <ColumnDefinition Width="Auto" />
-                    </Grid.ColumnDefinitions>
+            <ui:CardControl>
+                <ui:CardControl.Icon>
+                    <ui:SymbolIcon Symbol="Delete24" Foreground="{DynamicResource SystemFillColorCriticalBrush}" />
+                </ui:CardControl.Icon>
+                <ui:CardControl.Header>
                     <StackPanel>
                         <TextBlock Text="清除所有資料" />
-                        <TextBlock Text="刪除全部菜單與偏好設定，此操作無法復原" Opacity="0.6" FontSize="11" />
+                        <TextBlock Text="刪除全部菜單、零件暫存區與偏好設定，此操作無法復原" Opacity="0.6" FontSize="11" />
                     </StackPanel>
-                    <ui:Button Grid.Column="1" Icon="{ui:SymbolIcon Delete24}" Appearance="Danger"
-                               Command="{Binding ClearAllDataCommand}" />
-                </Grid>
-            </ui:CardControl.Header>
-        </ui:CardControl>
+                </ui:CardControl.Header>
+                <ui:Button Icon="{ui:SymbolIcon Delete24}" Appearance="Danger"
+                           Command="{Binding ClearAllDataCommand}" />
+            </ui:CardControl>
 
-    </StackPanel>
-</UserControl>
+        </StackPanel>
+    </ScrollViewer>
+</Page>

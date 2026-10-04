@@ -1,4 +1,4 @@
-<UserControl x:Class="PCBuilder.Views.HomeView"
+<Page x:Class="PCBuilder.Views.HomeView"
              xmlns="http://schemas.microsoft.com/winfx/2006/xaml/presentation"
              xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
              xmlns:d="http://schemas.microsoft.com/expression/blend/2008"
@@ -8,114 +8,220 @@
              xmlns:controls="clr-namespace:PCBuilder.Views.Controls"
              mc:Ignorable="d"
              d:DataContext="{d:DesignInstance Type=vm:HomeViewModel}"
-             d:DesignHeight="800" d:DesignWidth="1200">
+             d:DesignHeight="800" d:DesignWidth="1200"
+             ScrollViewer.CanContentScroll="False"
+             Foreground="{DynamicResource TextFillColorPrimaryBrush}"
+             PreviewMouseDown="Page_PreviewMouseDown">
+    <!-- Foreground：頁面裡沒有包在 WPF-UI 控制項內的文字不會繼承主題文字色，深色模式下會變成預設的黑字 -->
 
-    <Grid Margin="12">
+    <Grid Margin="12,12,12,0">
         <Grid.RowDefinitions>
             <RowDefinition Height="Auto" />
             <RowDefinition Height="*" />
+            <RowDefinition Height="Auto" />
         </Grid.RowDefinitions>
 
-        <!-- 頂部工具列 -->
-        <StackPanel Grid.Row="0" Orientation="Horizontal" Margin="0,0,0,12" VerticalAlignment="Center">
-            <ComboBox ItemsSource="{Binding Categories}"
+        <!-- 頂部工具列：主分類、分類摘要、更新資料 -->
+        <Grid Grid.Row="0" Margin="0,0,0,12">
+            <Grid.ColumnDefinitions>
+                <ColumnDefinition Width="Auto" />
+                <ColumnDefinition Width="*" />
+                <ColumnDefinition Width="Auto" />
+            </Grid.ColumnDefinitions>
+
+            <ComboBox Grid.Column="0" ItemsSource="{Binding Categories}"
                       SelectedItem="{Binding SelectedCategory, Mode=OneWay}"
                       SelectionChanged="CategoryComboBox_SelectionChanged"
                       DisplayMemberPath="CategoryName"
-                      MinWidth="220" Margin="0,0,12,0" />
+                      MinWidth="220" VerticalAlignment="Center" />
 
-            <TextBlock Text="{Binding SelectedCategory.Summary}"
-                       VerticalAlignment="Center" Opacity="0.7" MaxWidth="300" TextTrimming="CharacterEllipsis" />
+            <!-- 摘要放在 * 欄：視窗變窄時由它讓出空間（顯示…） -->
+            <TextBlock Grid.Column="1" Text="{Binding SelectedCategory.Summary}" Margin="12,0"
+                       VerticalAlignment="Center" Opacity="0.7" TextTrimming="CharacterEllipsis"
+                       ToolTip="{Binding SelectedCategory.Summary}" />
 
-            <ui:Button Content="更新資料" Icon="{ui:SymbolIcon ArrowSync24}"
-                       Command="{Binding UpdateDataCommand}"
-                       Margin="12,0,0,0" HorizontalAlignment="Right" />
+            <ui:Button Grid.Column="2" Icon="{ui:SymbolIcon ArrowSync24}" ToolTip="從網路更新原價屋商品資料"
+                       Command="{Binding UpdateDataCommand}" />
+        </Grid>
 
-            <ui:Button Content="新增菜單" Icon="{ui:SymbolIcon Add24}"
-                       Command="{Binding AddNewMenuCommand}"
-                       Margin="8,0,0,0" />
+        <!-- 商品內容區：左側子分類清單 + 右側商品表格 -->
+        <Grid Grid.Row="1">
+            <Grid.ColumnDefinitions>
+                <ColumnDefinition Width="240" />
+                <ColumnDefinition Width="*" />
+            </Grid.ColumnDefinitions>
 
-            <ComboBox ItemsSource="{Binding AvailableMenus}"
-                      SelectedItem="{Binding CurrentMenuCategory, Mode=OneWay}"
-                      SelectionChanged="MenuComboBox_SelectionChanged"
-                      DisplayMemberPath="Name"
-                      MinWidth="140" Margin="8,0,0,0"
-                      Visibility="{Binding AvailableMenus.Count, Converter={StaticResource CountToVisibilityConverter}}" />
-
-            <ui:Button Content="當前菜單" Icon="{ui:SymbolIcon DocumentBulletList24}"
-                       Command="{Binding TogglePopoverCommand}"
-                       Margin="8,0,0,0"
-                       Visibility="{Binding CurrentMenuCategory, Converter={StaticResource NullToVisibilityConverter}}" />
-        </StackPanel>
-
-        <!-- 商品內容區：子分類 Tab -->
-        <TabControl Grid.Row="1" ItemsSource="{Binding Subcategories}">
-            <TabControl.ItemTemplate>
-                <DataTemplate>
-                    <StackPanel Orientation="Horizontal">
-                        <TextBlock Text="{Binding SubcategoryName}" />
-                        <Border Background="{DynamicResource AccentFillColorDefaultBrush}"
-                                CornerRadius="8" Padding="6,1" Margin="6,0,0,0"
-                                Visibility="{Binding Qty, Converter={StaticResource ZeroToCollapsedConverter}}">
-                            <TextBlock Text="{Binding Qty}" Foreground="White" FontSize="11" />
-                        </Border>
-                    </StackPanel>
-                </DataTemplate>
-            </TabControl.ItemTemplate>
-            <TabControl.ContentTemplate>
-                <DataTemplate>
-                    <controls:ProductListControl Products="{Binding Products}" />
-                </DataTemplate>
-            </TabControl.ContentTemplate>
-        </TabControl>
-
-        <!-- 當前菜單 Popover -->
-        <Popup IsOpen="{Binding IsPopoverOpen}" Placement="Bottom" StaysOpen="False"
-               AllowsTransparency="True" PopupAnimation="Fade">
-            <Border Background="{DynamicResource ApplicationBackgroundBrush}" BorderBrush="Gray" BorderThickness="1"
-                    CornerRadius="8" Padding="12" MaxHeight="500" MaxWidth="600">
-                <ScrollViewer VerticalScrollBarVisibility="Auto">
-                    <StackPanel>
-                        <ItemsControl ItemsSource="{Binding CurrentMenuItems}">
-                            <ItemsControl.ItemTemplate>
-                                <DataTemplate>
-                                    <Expander Header="{Binding Key}" IsExpanded="True">
-                                        <ItemsControl ItemsSource="{Binding Value}">
-                                            <ItemsControl.ItemTemplate>
-                                                <DataTemplate>
-                                                    <Grid Margin="0,4">
-                                                        <Grid.ColumnDefinitions>
-                                                            <ColumnDefinition Width="*" />
-                                                            <ColumnDefinition Width="Auto" />
-                                                            <ColumnDefinition Width="Auto" />
-                                                            <ColumnDefinition Width="Auto" />
-                                                        </Grid.ColumnDefinitions>
-                                                        <TextBlock Grid.Column="0" Text="{Binding ProductName}" TextTrimming="CharacterEllipsis" />
-                                                        <TextBlock Grid.Column="1" Text="{Binding ProductPrice, StringFormat=N0}" Margin="8,0" />
-                                                        <ui:NumberBox Grid.Column="2" Value="{Binding Qty, Mode=TwoWay}" Width="70" />
-                                                        <ui:Button Grid.Column="3" Icon="{ui:SymbolIcon Delete24}"
-                                                                   Appearance="Danger" Margin="8,0,0,0"
-                                                                   DataContext="{Binding}"
-                                                                   Command="{Binding DataContext.DeletePopoverProductCommand, RelativeSource={RelativeSource AncestorType=UserControl}}"
-                                                                   CommandParameter="{Binding}" />
-                                                    </Grid>
-                                                </DataTemplate>
-                                            </ItemsControl.ItemTemplate>
-                                        </ItemsControl>
-                                    </Expander>
-                                </DataTemplate>
-                            </ItemsControl.ItemTemplate>
-                        </ItemsControl>
-
-                        <Separator Margin="0,8" />
-
-                        <StackPanel Orientation="Horizontal" HorizontalAlignment="Right">
-                            <TextBlock Text="{Binding CurrentMenuTotalQty, StringFormat='共 {0} 項'}" Margin="0,0,12,0" />
-                            <TextBlock Text="{Binding CurrentMenuTotalPrice, StringFormat='總計: ${0:N0}'}" FontWeight="Bold" />
-                        </StackPanel>
-                    </StackPanel>
-                </ScrollViewer>
+            <!-- 用 WPF-UI 的 ui:ListView：一般 ListView 沒有主題樣式，深色模式下仍是白底，選取底色也固定淺色。
+                 外框用卡片色，跟右側表格區分開 -->
+            <Border Grid.Column="0" Margin="0,0,8,8" Padding="4" CornerRadius="6" BorderThickness="1"
+                    Background="{DynamicResource CardBackgroundFillColorDefaultBrush}"
+                    BorderBrush="{DynamicResource CardStrokeColorDefaultBrush}">
+            <ui:ListView ItemsSource="{Binding Subcategories}"
+                         SelectedItem="{Binding SelectedSubcategory}"
+                         SelectionMode="Single"
+                         ScrollViewer.HorizontalScrollBarVisibility="Disabled">
+                <ui:ListView.ItemTemplate>
+                    <DataTemplate>
+                        <!-- 左邊留空間給選取時出現的主題色小色條 -->
+                        <Grid Margin="8,2,0,2">
+                            <Grid.ColumnDefinitions>
+                                <ColumnDefinition Width="*" />
+                                <ColumnDefinition Width="Auto" />
+                            </Grid.ColumnDefinitions>
+                            <TextBlock Text="{Binding SubcategoryName}" TextWrapping="Wrap" VerticalAlignment="Center" />
+                            <!-- 該子分類的商品總數 -->
+                            <Border Grid.Column="1" Background="{DynamicResource ControlFillColorSecondaryBrush}"
+                                    BorderBrush="{DynamicResource ControlStrokeColorDefaultBrush}" BorderThickness="1"
+                                    CornerRadius="8" Padding="6,0" Margin="8,0,0,0" VerticalAlignment="Center"
+                                    Visibility="{Binding ProductCount, Converter={StaticResource ZeroToCollapsedConverter}}">
+                                <TextBlock Text="{Binding ProductCount}" FontSize="11" Opacity="0.8" />
+                            </Border>
+                        </Grid>
+                    </DataTemplate>
+                </ui:ListView.ItemTemplate>
+            </ui:ListView>
             </Border>
-        </Popup>
+
+            <controls:ProductListControl Grid.Column="1"
+                                          Products="{Binding SelectedSubcategory.Products}"
+                                          CurrentMenuCategory="{Binding CurrentMenuCategory}"
+                                          AddMenuProductRequested="ProductListControl_AddMenuProductRequested" />
+        </Grid>
+
+        <!-- 當前菜單面板：從底部菜單列往上展開，蓋在商品列表上 -->
+        <Border x:Name="MenuPanel" Grid.Row="1" VerticalAlignment="Bottom" MaxHeight="420" Margin="0,0,0,-1"
+                Background="{DynamicResource ApplicationBackgroundBrush}"
+                BorderBrush="{DynamicResource ControlStrokeColorDefaultBrush}" BorderThickness="1,1,1,0"
+                CornerRadius="8,8,0,0" Padding="16,12"
+                Visibility="{Binding IsMenuPanelOpen, Converter={StaticResource BoolToVisibilityConverter}}">
+            <Border.Effect>
+                <DropShadowEffect BlurRadius="16" ShadowDepth="2" Direction="90" Opacity="0.18" />
+            </Border.Effect>
+            <ScrollViewer VerticalScrollBarVisibility="Auto">
+                <StackPanel>
+                    <TextBlock Text="這個菜單還沒有任何商品，在上方表格輸入數量即可加入" Opacity="0.6" Margin="4"
+                               Visibility="{Binding HasCurrentMenuItems, Converter={StaticResource InverseBoolToVisibilityConverter}}" />
+                    <ItemsControl ItemsSource="{Binding CurrentMenuItems}">
+                        <ItemsControl.ItemTemplate>
+                            <DataTemplate>
+                                <!-- 商品分類：維持 Expander 外觀，但固定展開、沒有收合功能與箭頭（StaticExpanderStyle） -->
+                                <Expander Header="{Binding Key}" Margin="0,0,0,4" Style="{StaticResource StaticExpanderStyle}">
+                                    <ItemsControl ItemsSource="{Binding Value}">
+                                        <ItemsControl.ItemTemplate>
+                                            <DataTemplate>
+                                                <Grid Margin="0,4">
+                                                    <Grid.ColumnDefinitions>
+                                                        <ColumnDefinition Width="*" />
+                                                        <ColumnDefinition Width="Auto" />
+                                                        <ColumnDefinition Width="Auto" />
+                                                        <ColumnDefinition Width="Auto" />
+                                                    </Grid.ColumnDefinitions>
+                                                    <TextBlock Grid.Column="0" TextWrapping="Wrap" VerticalAlignment="Center">
+                                                        <Hyperlink Style="{StaticResource ProductLinkStyle}"
+                                                                   Command="{Binding DataContext.OpenLinkCommand, RelativeSource={RelativeSource AncestorType=Page}}">
+                                                            <Run Text="{Binding ProductName, Mode=OneWay}" />
+                                                        </Hyperlink>
+                                                    </TextBlock>
+                                                    <TextBlock Grid.Column="1" Text="{Binding ProductPrice, StringFormat='${0:N0}'}"
+                                                               Margin="12,0" VerticalAlignment="Center" />
+                                                    <ui:NumberBox Grid.Column="2" Value="{Binding Qty, Mode=OneWay}" Width="110" Minimum="1"
+                                                                  ClearButtonEnabled="False"
+                                                                  ValueChanged="MenuItemQty_ValueChanged" Tag="{Binding}" />
+                                                    <ui:Button Grid.Column="3" Icon="{ui:SymbolIcon Delete24}" ToolTip="從菜單移除"
+                                                               Appearance="Danger" Margin="8,0,0,0"
+                                                               Command="{Binding DataContext.DeleteMenuItemCommand, RelativeSource={RelativeSource AncestorType=Page}}"
+                                                               CommandParameter="{Binding}" />
+                                                </Grid>
+                                            </DataTemplate>
+                                        </ItemsControl.ItemTemplate>
+                                    </ItemsControl>
+                                </Expander>
+                            </DataTemplate>
+                        </ItemsControl.ItemTemplate>
+                    </ItemsControl>
+                </StackPanel>
+            </ScrollViewer>
+        </Border>
+
+        <!-- 底部菜單列：新增 / 切換菜單、商品數量與總金額、展開當前菜單 -->
+        <Border Grid.Row="2" Margin="-12,0" Padding="12,10"
+                Background="{DynamicResource ApplicationBackgroundBrush}"
+                BorderBrush="{DynamicResource ControlStrokeColorDefaultBrush}" BorderThickness="0,1,0,0">
+            <Grid>
+                <Grid.ColumnDefinitions>
+                    <ColumnDefinition Width="Auto" />
+                    <ColumnDefinition Width="Auto" />
+                    <ColumnDefinition Width="*" />
+                    <ColumnDefinition Width="Auto" />
+                </Grid.ColumnDefinitions>
+
+                <!-- 沒有選取菜單時商品數量欄會停用，在菜單列正中間提示原因（此時下拉選單與金額都隱藏，不會重疊） -->
+                <TextBlock Grid.Column="0" Grid.ColumnSpan="4" Text="請先新增或選擇菜單" FontWeight="SemiBold"
+                           Foreground="{DynamicResource SystemFillColorCriticalBrush}"
+                           HorizontalAlignment="Center" VerticalAlignment="Center">
+                    <TextBlock.Style>
+                        <Style TargetType="TextBlock">
+                            <Setter Property="Visibility" Value="Collapsed" />
+                            <Style.Triggers>
+                                <DataTrigger Binding="{Binding CurrentMenuCategory}" Value="{x:Null}">
+                                    <Setter Property="Visibility" Value="Visible" />
+                                </DataTrigger>
+                            </Style.Triggers>
+                        </Style>
+                    </TextBlock.Style>
+                </TextBlock>
+
+                <ui:Button Grid.Column="0" Icon="{ui:SymbolIcon Add24}" ToolTip="新增菜單"
+                           Command="{Binding AddNewMenuCommand}" VerticalAlignment="Center" />
+
+                <!-- 已生成估價單的菜單也列出來，但停用（樣式見 App.xaml 的 MenuOption*） -->
+                <ComboBox Grid.Column="1" ItemsSource="{Binding AvailableMenus}"
+                          SelectedItem="{Binding CurrentMenuCategory, Mode=OneWay}"
+                          SelectionChanged="MenuComboBox_SelectionChanged"
+                          ItemTemplate="{StaticResource MenuOptionTemplate}"
+                          ItemContainerStyle="{StaticResource MenuOptionContainerStyle}"
+                          MinWidth="180" Margin="8,0,0,0" VerticalAlignment="Center"
+                          Visibility="{Binding AvailableMenus.Count, Converter={StaticResource CountToVisibilityConverter}}" />
+
+                <StackPanel Grid.Column="2" Orientation="Horizontal" HorizontalAlignment="Right" VerticalAlignment="Center"
+                            Margin="16,0"
+                            Visibility="{Binding CurrentMenuCategory, Converter={StaticResource NullToVisibilityConverter}}">
+                    <ui:SymbolIcon Symbol="Cart24" FontSize="18" VerticalAlignment="Center" Opacity="0.8" />
+                    <TextBlock Text="{Binding CurrentMenuTotalQty, StringFormat='共 {0} 項商品'}" Margin="8,0,16,0"
+                               VerticalAlignment="Center" Opacity="0.8" />
+                    <TextBlock Text="總計" VerticalAlignment="Center" Opacity="0.8" />
+                    <TextBlock Text="{Binding CurrentMenuTotalPrice, StringFormat='${0:N0}'}" Margin="8,0,0,0"
+                               FontSize="18" FontWeight="SemiBold" VerticalAlignment="Center"
+                               Foreground="{DynamicResource AccentTextFillColorPrimaryBrush}" />
+                </StackPanel>
+
+                <ui:Button x:Name="MenuPanelToggle" Grid.Column="3" Appearance="Primary" VerticalAlignment="Center"
+                           Command="{Binding ToggleMenuPanelCommand}"
+                           IsEnabled="{Binding CurrentMenuCategory, Converter={StaticResource NotNullToBoolConverter}}">
+                    <ui:Button.Style>
+                        <Style TargetType="ui:Button" BasedOn="{StaticResource {x:Type ui:Button}}">
+                            <Setter Property="ToolTip" Value="展開菜單" />
+                            <Style.Triggers>
+                                <DataTrigger Binding="{Binding IsMenuPanelOpen}" Value="True">
+                                    <Setter Property="ToolTip" Value="收合菜單" />
+                                </DataTrigger>
+                            </Style.Triggers>
+                        </Style>
+                    </ui:Button.Style>
+                    <ui:SymbolIcon>
+                        <ui:SymbolIcon.Style>
+                            <Style TargetType="ui:SymbolIcon">
+                                <Setter Property="Symbol" Value="ChevronUp24" />
+                                <Style.Triggers>
+                                    <DataTrigger Binding="{Binding IsMenuPanelOpen}" Value="True">
+                                        <Setter Property="Symbol" Value="ChevronDown24" />
+                                    </DataTrigger>
+                                </Style.Triggers>
+                            </Style>
+                        </ui:SymbolIcon.Style>
+                    </ui:SymbolIcon>
+                </ui:Button>
+            </Grid>
+        </Border>
     </Grid>
-</UserControl>
+</Page>

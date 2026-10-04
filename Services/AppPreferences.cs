@@ -14,11 +14,8 @@ namespace PCBuilder.Services
 
         public AppPreferences()
         {
-            var folder = Path.Combine(
-                Environment.GetFolderPath(Environment.SpecialFolder.LocalApplicationData),
-                "PCCustomizer");
-            Directory.CreateDirectory(folder);
-            _filePath = Path.Combine(folder, "preferences.json");
+            Directory.CreateDirectory(AppPaths.DataFolder);
+            _filePath = AppPaths.PreferencesPath;
             _data = Load();
         }
 
@@ -48,6 +45,15 @@ namespace PCBuilder.Services
             _data.TryGetValue(key, out var value) && value.TryGetInt32(out var i) ? i : null;
 
         public void SetInt(string key, int value)
+        {
+            _data[key] = JsonSerializer.SerializeToElement(value);
+            Save();
+        }
+
+        public string? GetString(string key) =>
+            _data.TryGetValue(key, out var value) && value.ValueKind == JsonValueKind.String ? value.GetString() : null;
+
+        public void SetString(string key, string value)
         {
             _data[key] = JsonSerializer.SerializeToElement(value);
             Save();

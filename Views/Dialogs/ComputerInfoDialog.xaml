@@ -7,81 +7,201 @@
              xmlns:vm="clr-namespace:PCBuilder.ViewModels"
              mc:Ignorable="d"
              d:DataContext="{d:DesignInstance Type=vm:ComputerInfoDialogViewModel}"
-             d:DesignHeight="600" d:DesignWidth="500">
+             d:DesignHeight="600" d:DesignWidth="480">
 
-    <Grid MaxWidth="480">
-        <StackPanel Visibility="{Binding IsScanning, Converter={StaticResource BoolToVisibilityConverter}}">
-            <TextBlock Text="正在掃描硬體資訊，請稍候..." Margin="0,0,0,8" />
-            <ProgressBar IsIndeterminate="True" Height="4" />
+    <UserControl.Resources>
+        <Style x:Key="InfoRowStyle" TargetType="Grid">
+            <Setter Property="Margin" Value="0,0,0,8" />
+        </Style>
+        <Style x:Key="InfoLabelStyle" TargetType="TextBlock">
+            <Setter Property="Opacity" Value="0.6" />
+        </Style>
+        <Style x:Key="SectionTitleStyle" TargetType="TextBlock">
+            <Setter Property="Opacity" Value="0.6" />
+            <Setter Property="Margin" Value="0,16,0,8" />
+        </Style>
+    </UserControl.Resources>
+
+    <Grid>
+        <StackPanel Visibility="{Binding IsScanning, Converter={StaticResource BoolToVisibilityConverter}}"
+                    HorizontalAlignment="Center" Margin="0,40">
+            <ui:ProgressRing IsIndeterminate="True" Width="32" Height="32" HorizontalAlignment="Center" />
+            <TextBlock Text="正在掃描硬體資訊，請稍候..." Margin="0,12,0,0" Opacity="0.7" />
         </StackPanel>
 
-        <StackPanel Visibility="{Binding Info, Converter={StaticResource NullToVisibilityConverter}}">
-            <Grid Margin="0,0,0,4">
-                <Grid.ColumnDefinitions>
-                    <ColumnDefinition Width="120" />
-                    <ColumnDefinition Width="*" />
-                </Grid.ColumnDefinitions>
-                <TextBlock Text="主機板" FontWeight="Bold" />
-                <TextBlock Grid.Column="1" Text="{Binding Info.MotherboardManufacturer}" />
-            </Grid>
-            <Grid Margin="0,0,0,4">
-                <Grid.ColumnDefinitions>
-                    <ColumnDefinition Width="120" />
-                    <ColumnDefinition Width="*" />
-                </Grid.ColumnDefinitions>
-                <TextBlock Text="CPU" FontWeight="Bold" />
-                <TextBlock Grid.Column="1" Text="{Binding Info.CpuName}" />
-            </Grid>
-            <Grid Margin="0,0,0,4">
-                <Grid.ColumnDefinitions>
-                    <ColumnDefinition Width="120" />
-                    <ColumnDefinition Width="*" />
-                </Grid.ColumnDefinitions>
-                <TextBlock Text="記憶體總容量" FontWeight="Bold" />
-                <TextBlock Grid.Column="1" Text="{Binding Info.TotalPhysicalMemoryGb, StringFormat={}{0:F2} GB}" />
-            </Grid>
+        <ScrollViewer Visibility="{Binding Info, Converter={StaticResource NullToVisibilityConverter}}"
+                      MaxHeight="520" VerticalScrollBarVisibility="Auto">
+            <StackPanel>
 
-            <TextBlock Text="顯示卡資訊" FontWeight="Bold" Margin="0,12,0,4" />
-            <ItemsControl ItemsSource="{Binding Info.Gpus}">
-                <ItemsControl.ItemTemplate>
-                    <DataTemplate>
-                        <StackPanel Margin="0,0,0,8">
-                            <TextBlock Text="{Binding Name}" />
-                            <TextBlock>
-                                <Run Text="{Binding AdapterRamGb, StringFormat={}{0:F2} GB}" />
-                                <Run Text=" / " />
-                                <Run Text="{Binding DriverVersion}" />
+                <!-- 主機板 / CPU / 記憶體總覽 -->
+                <ui:CardControl>
+                    <ui:CardControl.Icon>
+                        <ui:SymbolIcon Symbol="DeveloperBoard24" />
+                    </ui:CardControl.Icon>
+                    <ui:CardControl.Header>
+                        <StackPanel>
+                            <Grid Style="{StaticResource InfoRowStyle}">
+                                <Grid.ColumnDefinitions>
+                                    <ColumnDefinition Width="120" />
+                                    <ColumnDefinition Width="*" />
+                                </Grid.ColumnDefinitions>
+                                <TextBlock Text="主機板" Style="{StaticResource InfoLabelStyle}" />
+                                <TextBlock Grid.Column="1" Text="{Binding Info.MotherboardManufacturer}" TextWrapping="Wrap" />
+                            </Grid>
+                            <Grid Style="{StaticResource InfoRowStyle}">
+                                <Grid.ColumnDefinitions>
+                                    <ColumnDefinition Width="120" />
+                                    <ColumnDefinition Width="*" />
+                                </Grid.ColumnDefinitions>
+                                <TextBlock Text="CPU" Style="{StaticResource InfoLabelStyle}" />
+                                <TextBlock Grid.Column="1" Text="{Binding Info.CpuName}" TextWrapping="Wrap" />
+                            </Grid>
+                            <Grid Style="{StaticResource InfoRowStyle}">
+                                <Grid.ColumnDefinitions>
+                                    <ColumnDefinition Width="120" />
+                                    <ColumnDefinition Width="*" />
+                                </Grid.ColumnDefinitions>
+                                <TextBlock Text="核心 / 執行緒" Style="{StaticResource InfoLabelStyle}" />
+                                <TextBlock Grid.Column="1">
+                                    <Run Text="{Binding Info.CpuCores, Mode=OneWay}" /><Run Text=" 核 / " /><Run Text="{Binding Info.CpuThreads, Mode=OneWay}" /><Run Text=" 緒" />
+                                </TextBlock>
+                            </Grid>
+                            <Grid Style="{StaticResource InfoRowStyle}">
+                                <Grid.ColumnDefinitions>
+                                    <ColumnDefinition Width="120" />
+                                    <ColumnDefinition Width="*" />
+                                </Grid.ColumnDefinitions>
+                                <TextBlock Text="最高頻率" Style="{StaticResource InfoLabelStyle}" />
+                                <TextBlock Grid.Column="1" Text="{Binding Info.CpuMaxClockSpeedMhz, StringFormat={}{0} MHz}" />
+                            </Grid>
+                            <Grid Style="{StaticResource InfoRowStyle}"
+                                  Visibility="{Binding Info.CpuTemperatureCelsius, Converter={StaticResource NullToVisibilityConverter}}">
+                                <Grid.ColumnDefinitions>
+                                    <ColumnDefinition Width="120" />
+                                    <ColumnDefinition Width="*" />
+                                </Grid.ColumnDefinitions>
+                                <TextBlock Text="CPU 溫度 / 負載" Style="{StaticResource InfoLabelStyle}" />
+                                <TextBlock Grid.Column="1">
+                                    <Run Text="{Binding Info.CpuTemperatureCelsius, StringFormat={}{0:F0}°C, Mode=OneWay}" /><Run Text=" / " /><Run Text="{Binding Info.CpuLoadPercent, StringFormat={}{0:F0}%, Mode=OneWay}" />
+                                </TextBlock>
+                            </Grid>
+                            <Grid Margin="0">
+                                <Grid.ColumnDefinitions>
+                                    <ColumnDefinition Width="120" />
+                                    <ColumnDefinition Width="*" />
+                                </Grid.ColumnDefinitions>
+                                <TextBlock Text="記憶體總容量" Style="{StaticResource InfoLabelStyle}" />
+                                <TextBlock Grid.Column="1" Text="{Binding Info.TotalPhysicalMemoryGb, StringFormat={}{0:F2} GB}" />
+                            </Grid>
+                        </StackPanel>
+                    </ui:CardControl.Header>
+                </ui:CardControl>
+
+                <!-- 顯示卡 -->
+                <TextBlock Text="顯示卡" Style="{StaticResource SectionTitleStyle}" />
+                <ItemsControl ItemsSource="{Binding Info.Gpus}">
+                    <ItemsControl.ItemTemplate>
+                        <DataTemplate>
+                            <ui:CardControl Margin="0,0,0,4">
+                                <ui:CardControl.Icon>
+                                    <ui:SymbolIcon Symbol="VideoClip24" />
+                                </ui:CardControl.Icon>
+                                <ui:CardControl.Header>
+                                    <StackPanel>
+                                        <TextBlock Text="{Binding Name}" TextWrapping="Wrap" />
+                                        <TextBlock Opacity="0.6" FontSize="12" Margin="0,2,0,0">
+                                            <Run Text="{Binding AdapterRamGb, StringFormat={}{0:F2} GB}" /><Run Text=" · 驅動 " /><Run Text="{Binding DriverVersion}" />
+                                        </TextBlock>
+                                        <TextBlock Opacity="0.6" FontSize="12" Margin="0,2,0,0"
+                                                   Visibility="{Binding TemperatureCelsius, Converter={StaticResource NullToVisibilityConverter}}">
+                                            <Run Text="{Binding TemperatureCelsius, StringFormat={}{0:F0}°C}" /><Run Text=" / " /><Run Text="{Binding LoadPercent, StringFormat={}{0:F0}%}" />
+                                        </TextBlock>
+                                    </StackPanel>
+                                </ui:CardControl.Header>
+                            </ui:CardControl>
+                        </DataTemplate>
+                    </ItemsControl.ItemTemplate>
+                </ItemsControl>
+
+                <!-- 記憶體插槽 -->
+                <TextBlock Text="記憶體插槽" Style="{StaticResource SectionTitleStyle}" />
+                <ui:CardControl>
+                    <ui:CardControl.Icon>
+                        <ui:SymbolIcon Symbol="Memory16" />
+                    </ui:CardControl.Icon>
+                    <ui:CardControl.Header>
+                        <StackPanel>
+                            <ItemsControl ItemsSource="{Binding Info.RamSticks}">
+                                <ItemsControl.ItemTemplate>
+                                    <DataTemplate>
+                                        <TextBlock Margin="0,0,0,4">
+                                            <Run Text="{Binding CapacityGb, StringFormat={}{0:F2} GB}" /><Run Text=" · " /><Run Text="{Binding SpeedMhz}" /><Run Text=" MHz" />
+                                        </TextBlock>
+                                    </DataTemplate>
+                                </ItemsControl.ItemTemplate>
+                            </ItemsControl>
+                            <TextBlock Opacity="0.6" FontSize="12"
+                                       Visibility="{Binding Info.RamUsedGb, Converter={StaticResource NullToVisibilityConverter}}">
+                                <Run Text="使用中：" /><Run Text="{Binding Info.RamUsedGb, StringFormat={}{0:F1} GB, Mode=OneWay}" /><Run Text=" / 可用：" /><Run Text="{Binding Info.RamAvailableGb, StringFormat={}{0:F1} GB, Mode=OneWay}" />
                             </TextBlock>
                         </StackPanel>
-                    </DataTemplate>
-                </ItemsControl.ItemTemplate>
-            </ItemsControl>
+                    </ui:CardControl.Header>
+                </ui:CardControl>
 
-            <TextBlock Text="記憶體插槽" FontWeight="Bold" Margin="0,12,0,4" />
-            <ItemsControl ItemsSource="{Binding Info.RamSticks}">
-                <ItemsControl.ItemTemplate>
-                    <DataTemplate>
-                        <TextBlock Margin="0,0,0,4">
-                            <Run Text="{Binding CapacityGb, StringFormat={}{0:F2} GB}" />
-                            <Run Text=", " />
-                            <Run Text="{Binding SpeedMhz}" />
-                            <Run Text=" MHz" />
-                        </TextBlock>
-                    </DataTemplate>
-                </ItemsControl.ItemTemplate>
-            </ItemsControl>
+                <!-- 儲存裝置 -->
+                <TextBlock Text="儲存裝置" Style="{StaticResource SectionTitleStyle}" />
+                <ItemsControl ItemsSource="{Binding Info.Disks}">
+                    <ItemsControl.ItemTemplate>
+                        <DataTemplate>
+                            <ui:CardControl Margin="0,0,0,4">
+                                <ui:CardControl.Icon>
+                                    <ui:SymbolIcon Symbol="Storage24" />
+                                </ui:CardControl.Icon>
+                                <ui:CardControl.Header>
+                                    <StackPanel>
+                                        <TextBlock Text="{Binding Model}" TextWrapping="Wrap" />
+                                        <TextBlock Opacity="0.6" FontSize="12" Margin="0,2,0,0"
+                                                   Text="{Binding SizeGb, StringFormat={}{0:F2} GB}" />
+                                        <TextBlock Opacity="0.6" FontSize="12" Margin="0,2,0,0"
+                                                   Visibility="{Binding TemperatureCelsius, Converter={StaticResource NullToVisibilityConverter}}">
+                                            <Run Text="{Binding TemperatureCelsius, StringFormat={}{0:F0}°C}" /><Run Text=" · SMART 剩餘壽命 " /><Run Text="{Binding SmartLifeRemainingPercent, StringFormat={}{0:F0}%}" />
+                                        </TextBlock>
+                                    </StackPanel>
+                                </ui:CardControl.Header>
+                            </ui:CardControl>
+                        </DataTemplate>
+                    </ItemsControl.ItemTemplate>
+                </ItemsControl>
 
-            <TextBlock Text="儲存裝置" FontWeight="Bold" Margin="0,12,0,4" />
-            <ItemsControl ItemsSource="{Binding Info.Disks}">
-                <ItemsControl.ItemTemplate>
-                    <DataTemplate>
-                        <StackPanel Margin="0,0,0,8">
-                            <TextBlock Text="{Binding Model}" />
-                            <TextBlock Text="{Binding SizeGb, StringFormat={}{0:F2} GB}" />
-                        </StackPanel>
-                    </DataTemplate>
-                </ItemsControl.ItemTemplate>
-            </ItemsControl>
-        </StackPanel>
+                <!-- 風扇轉速（僅在有資料時顯示整個區塊） -->
+                <StackPanel Visibility="{Binding Info.FanSpeeds.Count, Converter={StaticResource CountToVisibilityConverter}}">
+                    <TextBlock Text="風扇轉速" Style="{StaticResource SectionTitleStyle}" />
+                    <ui:CardControl>
+                        <ui:CardControl.Icon>
+                            <ui:SymbolIcon Symbol="Gauge24" />
+                        </ui:CardControl.Icon>
+                        <ui:CardControl.Header>
+                            <ItemsControl ItemsSource="{Binding Info.FanSpeeds}">
+                                <ItemsControl.ItemTemplate>
+                                    <DataTemplate>
+                                        <Grid Margin="0,0,0,4">
+                                            <Grid.ColumnDefinitions>
+                                                <ColumnDefinition Width="*" />
+                                                <ColumnDefinition Width="Auto" />
+                                            </Grid.ColumnDefinitions>
+                                            <TextBlock Text="{Binding Name}" Opacity="0.7" />
+                                            <TextBlock Grid.Column="1" Text="{Binding Rpm, StringFormat={}{0:F0} RPM}" />
+                                        </Grid>
+                                    </DataTemplate>
+                                </ItemsControl.ItemTemplate>
+                            </ItemsControl>
+                        </ui:CardControl.Header>
+                    </ui:CardControl>
+                </StackPanel>
+
+                <TextBlock Text="部分感測器資訊需要以系統管理員身分執行才會顯示" Opacity="0.5" FontSize="11"
+                           Margin="0,16,0,0" TextWrapping="Wrap" />
+            </StackPanel>
+        </ScrollViewer>
     </Grid>
 </UserControl>

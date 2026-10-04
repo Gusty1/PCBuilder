@@ -65,16 +65,16 @@ namespace PCBuilder.Services
                     if (board != null)
                     {
                         ci.MotherboardManufacturer = board["Manufacturer"]?.ToString() ?? "N/A";
-                        ci.MotherboardProduct      = board["Product"]?.ToString() ?? "N/A";
+                        ci.MotherboardProduct = board["Product"]?.ToString() ?? "N/A";
                     }
 
                     using var cpuSearcher = new ManagementObjectSearcher("SELECT * FROM Win32_Processor");
                     var cpu = cpuSearcher.Get().OfType<ManagementObject>().FirstOrDefault();
                     if (cpu != null)
                     {
-                        ci.CpuName            = cpu["Name"]?.ToString()?.Trim() ?? "N/A";
-                        ci.CpuCores           = (uint)cpu["NumberOfCores"];
-                        ci.CpuThreads         = (uint)cpu["NumberOfLogicalProcessors"];
+                        ci.CpuName = cpu["Name"]?.ToString()?.Trim() ?? "N/A";
+                        ci.CpuCores = (uint)cpu["NumberOfCores"];
+                        ci.CpuThreads = (uint)cpu["NumberOfLogicalProcessors"];
                         ci.CpuMaxClockSpeedMhz = (uint)cpu["MaxClockSpeed"];
                     }
 
@@ -82,11 +82,13 @@ namespace PCBuilder.Services
                     using var gpuSearcher = new ManagementObjectSearcher("SELECT * FROM Win32_VideoController");
                     foreach (ManagementObject gpu in gpuSearcher.Get())
                     {
-                        var vramBytes = (ulong?)gpu["AdapterRAM"] ?? 0UL;
+                        // WMI 回傳的 AdapterRAM 實際裝箱型別依驅動而異（常見是 uint，也可能是 ulong），
+                        // 直接轉型 (ulong?) 在型別不符時會 InvalidCastException，改用 Convert 安全轉換。
+                        var vramBytes = gpu["AdapterRAM"] is { } raw ? Convert.ToUInt64(raw) : 0UL;
                         ci.Gpus!.Add(new GpuInfo
                         {
-                            Name          = gpu["Caption"]?.ToString() ?? "N/A",
-                            AdapterRamGb  = Math.Round(vramBytes / (1024.0 * 1024.0 * 1024.0), 2),
+                            Name = gpu["Caption"]?.ToString() ?? "N/A",
+                            AdapterRamGb = Math.Round(vramBytes / (1024.0 * 1024.0 * 1024.0), 2),
                             DriverVersion = gpu["DriverVersion"]?.ToString() ?? "N/A"
                         });
                     }
@@ -94,11 +96,11 @@ namespace PCBuilder.Services
                     using var ramSearcher = new ManagementObjectSearcher("SELECT * FROM Win32_PhysicalMemory");
                     foreach (ManagementObject stick in ramSearcher.Get())
                     {
-                        var capBytes = (ulong?)stick["Capacity"] ?? 0UL;
+                        var capBytes = stick["Capacity"] is { } cap ? Convert.ToUInt64(cap) : 0UL;
                         ci.RamSticks!.Add(new RamStickInfo
                         {
                             CapacityGb = Math.Round(capBytes / (1024.0 * 1024.0 * 1024.0), 2),
-                            SpeedMhz   = (uint?)stick["Speed"] ?? 0
+                            SpeedMhz = stick["Speed"] is { } speed ? Convert.ToUInt32(speed) : 0
                         });
                     }
                     ci.TotalPhysicalMemoryGb = Math.Round(ci.RamSticks!.Sum(r => r.CapacityGb), 2);
@@ -106,12 +108,12 @@ namespace PCBuilder.Services
                     using var diskSearcher = new ManagementObjectSearcher("SELECT * FROM Win32_DiskDrive");
                     foreach (ManagementObject disk in diskSearcher.Get())
                     {
-                        var sizeBytes = (ulong?)disk["Size"] ?? 0UL;
+                        var sizeBytes = disk["Size"] is { } size ? Convert.ToUInt64(size) : 0UL;
                         if (sizeBytes > 0)
                         {
                             ci.Disks!.Add(new DiskInfo
                             {
-                                Model  = disk["Model"]?.ToString() ?? "N/A",
+                                Model = disk["Model"]?.ToString() ?? "N/A",
                                 SizeGb = Math.Round(sizeBytes / (1024.0 * 1024.0 * 1024.0), 2)
                             });
                         }
@@ -125,10 +127,10 @@ namespace PCBuilder.Services
                         {
                             _lhm = new Computer
                             {
-                                IsCpuEnabled         = true,
-                                IsGpuEnabled         = true,
-                                IsMemoryEnabled      = true,
-                                IsStorageEnabled     = true,
+                                IsCpuEnabled = true,
+                                IsGpuEnabled = true,
+                                IsMemoryEnabled = true,
+                                IsStorageEnabled = true,
                                 IsMotherboardEnabled = true,
                             };
                             _lhm.Open();

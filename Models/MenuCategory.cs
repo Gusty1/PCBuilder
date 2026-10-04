@@ -1,4 +1,4 @@
-﻿using System.ComponentModel.DataAnnotations;
+using System.ComponentModel.DataAnnotations;
 
 namespace PCBuilder.Models
 {
@@ -21,5 +21,8 @@ namespace PCBuilder.Models
         public string? PngUrl { get; set; }
 
         public List<MenuProduct>? MenuProducts { get; set; } = [];
+
+        // 下拉選單用範本顯示菜單時，螢幕閱讀器與鍵盤輸入搜尋讀的是 ToString()，預設會變成型別名稱
+        public override string ToString() => Name;
     }
 }

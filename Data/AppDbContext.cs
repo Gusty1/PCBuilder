@@ -1,4 +1,4 @@
-﻿using Microsoft.EntityFrameworkCore;
+using Microsoft.EntityFrameworkCore;
 using PCBuilder.Models;
 
 namespace PCBuilder.Data
@@ -20,6 +20,10 @@ namespace PCBuilder.Data
         public DbSet<MenuCategory> MenuCategory { get; set; }
 
         public DbSet<MenuProduct> MenuProduct { get; set; }
+
+        public DbSet<AppSettings> AppSettings { get; set; }
+
+        public DbSet<StagedProduct> StagedProduct { get; set; }
 
         protected override void OnModelCreating(ModelBuilder modelBuilder)
         {
@@ -56,6 +60,18 @@ namespace PCBuilder.Data
             modelBuilder.Entity<MenuProduct>()
                 .Property(p => p.ProductName)
                 .HasMaxLength(500);
+
+            modelBuilder.Entity<AppSettings>()
+                .HasIndex(s => s.Key)
+                .IsUnique();
+
+            // 零件暫存區的商品從菜單移入、可再放回，字串長度限制與 MenuProduct 一致
+            modelBuilder.Entity<StagedProduct>(entity =>
+            {
+                entity.Property(p => p.CategoryName).HasMaxLength(100);
+                entity.Property(p => p.SubcategoryName).HasMaxLength(100);
+                entity.Property(p => p.ProductName).HasMaxLength(500);
+            });
         }
     }
 }

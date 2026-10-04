@@ -1,6 +1,6 @@
-﻿using System.ComponentModel.DataAnnotations;
+using System.ComponentModel.DataAnnotations;
 
-namespace PCBuilder.Models 
+namespace PCBuilder.Models
 {
     /// <summary>
     /// table Subcategory 設定

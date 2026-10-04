@@ -1,4 +1,4 @@
-﻿<Project Sdk="Microsoft.NET.Sdk">
+<Project Sdk="Microsoft.NET.Sdk">
 
   <PropertyGroup>
     <OutputType>WinExe</OutputType>
@@ -6,11 +6,14 @@
     <Nullable>enable</Nullable>
     <ImplicitUsings>enable</ImplicitUsings>
     <UseWPF>true</UseWPF>
+    <!-- exe、工作列、Alt+Tab 的圖示（視窗沒有另外設定 Icon 時沿用它）；由 Assets\build-icon.ps1 產生 -->
+    <ApplicationIcon>Assets\app.ico</ApplicationIcon>
   </PropertyGroup>
 
   <ItemGroup>
     <!-- MVVM -->
     <PackageReference Include="CommunityToolkit.Mvvm" Version="8.4.0" />
+    <PackageReference Include="Microsoft.Web.WebView2" Version="1.0.4258.31" />
 
     <!-- UI -->
     <PackageReference Include="WPF-UI" Version="4.*" />
@@ -28,6 +31,13 @@
     <!-- Hardware -->
     <PackageReference Include="System.Management" Version="10.0.3" />
     <PackageReference Include="LibreHardwareMonitorLib" Version="0.9.4" />
+  </ItemGroup>
+
+  <ItemGroup>
+    <!-- 商品沒有圖片或圖片載入失敗時的替代圖 -->
+    <Resource Include="Assets\no-image.jpg" />
+    <!-- 菜單管理頁可以拖曳的項目上顯示的張開手掌游標；由 Assets\build-icon.ps1 產生 -->
+    <Resource Include="Assets\grab.cur" />
   </ItemGroup>
 
 </Project>

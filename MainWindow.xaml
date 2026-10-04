@@ -5,11 +5,14 @@
         xmlns:mc="http://schemas.openxmlformats.org/markup-compatibility/2006"
         xmlns:ui="http://schemas.lepo.co/wpfui/2022/xaml"
         xmlns:local="clr-namespace:PCBuilder"
+        xmlns:views="clr-namespace:PCBuilder.Views"
+        xmlns:controls="clr-namespace:PCBuilder.Views.Controls"
         mc:Ignorable="d"
-        Title="PCCustomizer" Height="800" Width="1280"
+        Title="組電腦小幫手" Height="800" Width="1280"
         ExtendsContentIntoTitleBar="True"
         WindowBackdropType="Mica"
-        WindowStartupLocation="CenterScreen">
+        WindowStartupLocation="CenterScreen"
+        PreviewMouseDown="MainWindow_PreviewMouseDown">
 
     <Grid>
         <Grid.RowDefinitions>
@@ -17,23 +20,62 @@
             <RowDefinition Height="*" />
         </Grid.RowDefinitions>
 
-        <ui:TitleBar Grid.Row="0" Title="PCCustomizer" />
+        <ui:TitleBar Grid.Row="0" Title="組電腦小幫手">
+            <ui:TitleBar.Icon>
+                <ui:ImageIcon Source="{StaticResource AppIconImage}" />
+            </ui:TitleBar.Icon>
+        </ui:TitleBar>
 
-        <ui:NavigationView x:Name="RootNavigation" Grid.Row="1" IsBackButtonVisible="Collapsed"
-                           SelectionChanged="RootNavigation_SelectionChanged">
+        <Grid Grid.Row="1">
+        <Grid.ColumnDefinitions>
+            <ColumnDefinition Width="*" />
+            <ColumnDefinition Width="Auto" />
+        </Grid.ColumnDefinitions>
+
+        <!-- 導覽列固定收合成只顯示圖示（首頁左側要放子分類清單，需要空間），滑鼠移過去用 ToolTip 顯示名稱 -->
+        <ui:NavigationView x:Name="RootNavigation" Grid.Column="0" IsBackButtonVisible="Collapsed"
+                           PaneDisplayMode="Left" IsPaneOpen="False" IsPaneToggleVisible="False">
             <ui:NavigationView.MenuItems>
-                <ui:NavigationViewItem Content="首頁" Icon="{ui:SymbolIcon Home24}" Tag="Home" />
-                <ui:NavigationViewItem Content="菜單管理" Icon="{ui:SymbolIcon DocumentBulletList24}" Tag="Menu" />
+                <ui:NavigationViewItem Content="首頁" ToolTip="首頁" Icon="{ui:SymbolIcon Home24}" TargetPageType="{x:Type views:HomeView}" />
+                <ui:NavigationViewItem Content="菜單管理" ToolTip="菜單管理" Icon="{ui:SymbolIcon DocumentBulletList24}" TargetPageType="{x:Type views:MenuView}" />
+                <ui:NavigationViewItemSeparator />
+                <!-- 只顯示圖示時無法展開子項目，改成點擊後在右側彈出選單 -->
+                <ui:NavigationViewItem Content="相關連結" ToolTip="相關連結" Icon="{ui:SymbolIcon LinkMultiple24}"
+                                       Click="RelatedLinksItem_Click">
+                    <ui:NavigationViewItem.ContextMenu>
+                        <ContextMenu>
+                            <MenuItem Header="CPU 性能天梯圖" Icon="{ui:SymbolIcon DeveloperBoard24}"
+                                      Command="{Binding OpenInAppLinkCommand}"
+                                      CommandParameter="https://www.mydrivers.com/zhuanti/tianti/cpu/index.html" />
+                            <MenuItem Header="顯卡性能天梯圖" Icon="{ui:SymbolIcon VideoClip24}"
+                                      Command="{Binding OpenInAppLinkCommand}"
+                                      CommandParameter="https://www.mydrivers.com/zhuanti/tianti/gpu/index.html" />
+                            <MenuItem Header="電腦組裝模擬器 (Web)" Icon="{ui:SymbolIcon Earth24}"
+                                      Command="{Binding OpenInAppLinkCommand}"
+                                      CommandParameter="https://pcpartpicker.com/" />
+                            <MenuItem Header="電腦組裝模擬器 (Steam)" Icon="{ui:SymbolIcon Games24}"
+                                      Command="{Binding OpenInAppLinkCommand}"
+                                      CommandParameter="https://store.steampowered.com/app/621060/PC_Building_Simulator/" />
+                        </ContextMenu>
+                    </ui:NavigationViewItem.ContextMenu>
+                </ui:NavigationViewItem>
             </ui:NavigationView.MenuItems>
             <ui:NavigationView.FooterMenuItems>
-                <ui:NavigationViewItem Content="我的電腦" Icon="{ui:SymbolIcon DesktopPulse24}"
+                <ui:NavigationViewItem Content="AI 助手" ToolTip="AI 助手" Icon="{ui:SymbolIcon ChatSparkle24}"
+                                       Command="{Binding AiChat.TogglePanelCommand}" />
+                <ui:NavigationViewItem Content="原價屋官網" Icon="{ui:SymbolIcon Earth24}"
+                                       ToolTip="原價屋官網（商品價格僅供參考，以原價屋官網為準）"
+                                       Command="{Binding OpenExternalLinkCommand}"
+                                       CommandParameter="https://www.coolpc.com.tw/evaluate.php" />
+                <ui:NavigationViewItem Content="我的電腦" ToolTip="我的電腦" Icon="{ui:SymbolIcon DesktopPulse24}"
                                        Command="{Binding OpenComputerInfoCommand}" />
-                <ui:NavigationViewItem Content="設定" Icon="{ui:SymbolIcon Settings24}" Tag="Setting" />
+                <ui:NavigationViewItem Content="設定" ToolTip="設定" Icon="{ui:SymbolIcon Settings24}" TargetPageType="{x:Type views:SettingView}" />
             </ui:NavigationView.FooterMenuItems>
-            <ui:NavigationView.ContentOverlay>
-                <ContentControl x:Name="MainContent" />
-            </ui:NavigationView.ContentOverlay>
         </ui:NavigationView>
+
+        <controls:AiChatPanel Grid.Column="1" DataContext="{Binding AiChat}"
+                              Visibility="{Binding IsPanelOpen, Converter={StaticResource BoolToVisibilityConverter}}" />
+        </Grid>
 
         <!-- 全域載入遮罩：涵蓋 SeedData + 首頁 DB 讀取兩個階段 -->
         <Border Grid.Row="0" Grid.RowSpan="2" Background="#CC000000"

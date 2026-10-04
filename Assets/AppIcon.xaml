@@ -1,0 +1,49 @@
+<!-- App icon 圖形（唯一的一份）：藍色圓角底、白色主機、黃色 AI 星芒，256x256 座標。
+     App.xaml 合併後供標題列顯示（向量，任何 DPI 都清楚）；Assets\build-icon.ps1 讀這個檔產生 app.ico。 -->
+<ResourceDictionary xmlns="http://schemas.microsoft.com/winfx/2006/xaml/presentation"
+                    xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml">
+    <DrawingImage x:Key="AppIconImage">
+        <DrawingImage.Drawing>
+            <DrawingGroup>
+                <!-- 透明的 256x256 外框：DrawingImage 的大小以圖形範圍計算，沒有它四周 8px 的留白會被裁掉 -->
+                <GeometryDrawing Brush="Transparent" Geometry="M0,0 H256 V256 H0 Z" />
+                <GeometryDrawing Brush="#3B6FE0">
+                    <GeometryDrawing.Geometry>
+                        <RectangleGeometry Rect="8,8,240,240" RadiusX="56" RadiusY="56" />
+                    </GeometryDrawing.Geometry>
+                </GeometryDrawing>
+                <GeometryDrawing Brush="#FFFFFF">
+                    <GeometryDrawing.Geometry>
+                        <RectangleGeometry Rect="62,44,92,168" RadiusX="16" RadiusY="16" />
+                    </GeometryDrawing.Geometry>
+                </GeometryDrawing>
+                <DrawingGroup Opacity="0.35">
+                    <GeometryDrawing Brush="#3B6FE0">
+                        <GeometryDrawing.Geometry>
+                            <RectangleGeometry Rect="78,66,60,12" RadiusX="6" RadiusY="6" />
+                        </GeometryDrawing.Geometry>
+                    </GeometryDrawing>
+                    <GeometryDrawing Brush="#3B6FE0">
+                        <GeometryDrawing.Geometry>
+                            <RectangleGeometry Rect="78,88,60,12" RadiusX="6" RadiusY="6" />
+                        </GeometryDrawing.Geometry>
+                    </GeometryDrawing>
+                </DrawingGroup>
+                <DrawingGroup Opacity="0.6">
+                    <GeometryDrawing>
+                        <GeometryDrawing.Pen>
+                            <Pen Brush="#3B6FE0" Thickness="7" />
+                        </GeometryDrawing.Pen>
+                        <GeometryDrawing.Geometry>
+                            <EllipseGeometry Center="108,176" RadiusX="13" RadiusY="13" />
+                        </GeometryDrawing.Geometry>
+                    </GeometryDrawing>
+                </DrawingGroup>
+                <GeometryDrawing Brush="#FFC83D"
+                                 Geometry="M194 50 C198 80 206 88 236 92 C206 96 198 104 194 134 C190 104 182 96 152 92 C182 88 190 80 194 50Z" />
+                <GeometryDrawing Brush="#FFFFFF"
+                                 Geometry="M204 146 C206 158 210 160 222 162 C210 164 206 168 204 180 C202 168 198 164 186 162 C198 160 202 158 204 146Z" />
+            </DrawingGroup>
+        </DrawingImage.Drawing>
+    </DrawingImage>
+</ResourceDictionary>
